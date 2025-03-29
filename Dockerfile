@@ -1,8 +1,19 @@
 FROM alpine:latest AS zig-installer
+ARG TARGETARCH
 RUN apk add --no-cache wget \
-    && wget https://ziglang.org/download/0.14.0/zig-linux-x86_64-0.14.0.tar.xz \
-    && tar -xf zig-linux-x86_64-0.14.0.tar.xz \
-    && mv zig-linux-x86_64-0.14.0 /usr/local/zig
+    && if [ "$TARGETARCH" = "arm64" ]; then \
+       wget https://ziglang.org/download/0.14.0/zig-linux-aarch64-0.14.0.tar.xz \
+       && tar -xf zig-linux-aarch64-0.14.0.tar.xz \
+       && mv zig-linux-aarch64-0.14.0 /usr/local/zig; \
+    elif [ "$TARGETARCH" = "arm" ]; then \
+       wget https://ziglang.org/download/0.14.0/zig-linux-armv7a-0.14.0.tar.xz \
+       && tar -xf zig-linux-armv7a-0.14.0.tar.xz \
+       && mv zig-linux-armv7a-0.14.0 /usr/local/zig; \
+    else \
+       wget https://ziglang.org/download/0.14.0/zig-linux-x86_64-0.14.0.tar.xz \
+       && tar -xf zig-linux-x86_64-0.14.0.tar.xz \
+       && mv zig-linux-x86_64-0.14.0 /usr/local/zig; \
+    fi
 
 FROM alpine:latest AS dev
 COPY --from=zig-installer /usr/local/zig /usr/local/zig
