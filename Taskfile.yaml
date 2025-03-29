@@ -32,7 +32,7 @@ tasks:
   kill-zombies:
     desc: Kill zombies based on port
     cmds:
-      - pkill -f 8080
+      - PID=$(lsof -t -i :8080) && [ -n "$PID" ] && kill -9 $PID
 
   tag:
     desc: Get current version and create tag

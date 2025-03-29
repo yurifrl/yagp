@@ -12,7 +12,8 @@ pub fn send_file(conn: Connection, path: []const u8, allocator: std.mem.Allocato
     defer file.close();
 
     const stat = try file.stat();
-    const content = try file.readToEndAlloc(allocator, stat.size);
+    const max_size: usize = @intCast(stat.size);
+    const content = try file.readToEndAlloc(allocator, max_size);
     defer allocator.free(content);
 
     const mime_type = getMimeType(path);
