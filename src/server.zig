@@ -11,7 +11,7 @@ const ThreadContext = struct {
     thread_id: usize,
 };
 
-fn handleConnection(connection: std.net.Server.Connection, thread_id: usize) !void {
+fn handleConnection(connection: std.net.Server.Connection, thread_id: usize, allocator: std.mem.Allocator) !void {
     defer connection.stream.close();
 
     var buffer: [1000]u8 = undefined;
@@ -26,7 +26,9 @@ fn handleConnection(connection: std.net.Server.Connection, thread_id: usize) !vo
 
     if (request.method == Method.GET) {
         if (std.mem.eql(u8, request.uri, "/")) {
-            try Response.send_200(connection);
+            try Response.send_file(connection, "index.html", allocator);
+        } else if (std.mem.eql(u8, request.uri, "/zig-out/bin/checkerboard.wasm")) {
+            try Response.send_file(connection, "zig-out/bin/checkerboard.wasm", allocator);
         } else {
             try Response.send_404(connection);
         }
@@ -36,7 +38,7 @@ fn handleConnection(connection: std.net.Server.Connection, thread_id: usize) !vo
 fn workerFn(ctx: *ThreadContext) !void {
     while (true) {
         const connection = try ctx.server.accept();
-        handleConnection(connection, ctx.thread_id) catch |err| {
+        handleConnection(connection, ctx.thread_id, ctx.allocator) catch |err| {
             try stdout.print("[Thread-{d}] Error handling connection: {any}\n", .{ ctx.thread_id, err });
         };
     }
@@ -51,8 +53,8 @@ pub fn main() !void {
     try stdout.print("Server Addr: {any}\n", .{socket._address});
     const server = try socket._address.listen(.{});
 
-    const thread_count = 4;
-    try stdout.print("Starting server with {d} worker threads\n", .{thread_count});
+    const thread_count = try std.Thread.getCpuCount();
+    try stdout.print("Starting server with {d} worker threads (using all available CPU cores)\n", .{thread_count});
 
     var threads = try allocator.alloc(std.Thread, thread_count);
     defer allocator.free(threads);
