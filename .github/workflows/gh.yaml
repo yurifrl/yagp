@@ -72,10 +72,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Debug
-        run: |
-          curl http://docker-registry.docker-registry.svc.cluster.local:5000/v2/_catalog -v
-      
       - name: Package and Push Charts
         run: |
           # Package the chart
@@ -86,4 +82,3 @@ jobs:
           
           # Push to GHCR
           helm push yagp-${version}.tgz "oci://ghcr.io/${{ github.repository }}/charts"
-          helm push yagp-${version}.tgz --plain-http "oci://docker-registry.docker-registry.svc.cluster.local:5000/charts"          
