@@ -1,5 +1,6 @@
 image:
   repository: ghcr.io/yurifrl/yagp
+  tag: "" # Default to Chart.yaml appVersion
   
 service:
   port: 8080 
