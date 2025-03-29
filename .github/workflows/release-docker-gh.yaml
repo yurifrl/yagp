@@ -1,4 +1,4 @@
-name: Release Docker
+name: Release Docker GH
 
 on:
   push:
@@ -8,7 +8,7 @@ on:
 
 jobs:
   build-and-push:
-    runs-on: gha-runner-yagp
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
@@ -38,7 +38,6 @@ jobs:
         with:
           images: |
             ghcr.io/${{ github.repository }}
-            docker-registry.syscd.tech/${{ github.repository }}
           tags: |
             type=raw,value=${{ steps.chart_version.outputs.version }}
             type=raw,value=latest,enable={{is_default_branch}}
