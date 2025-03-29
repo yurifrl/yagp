@@ -1,4 +1,4 @@
-name: Release Docker GH
+name: Run With Github Runner
 
 on:
   push:
