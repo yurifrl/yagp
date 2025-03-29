@@ -54,4 +54,4 @@ jobs:
           
           # Push to GHCR
           helm push yagp-${version}.tgz "oci://ghcr.io/${{ github.repository }}/charts"
-          helm push yagp-${version}.tgz "oci://http://docker-registry.docker-registry.svc.cluster.local:5000/charts"
+          helm push yagp-${version}.tgz --plain-http "oci://docker-registry.docker-registry.svc.cluster.local:5000/charts"
