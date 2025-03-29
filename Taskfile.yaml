@@ -33,3 +33,12 @@ tasks:
     desc: Kill zombies based on port
     cmds:
       - pkill -f 8080
+
+  tag:
+    desc: Get current version and create tag
+    cmds:
+      - |
+        VERSION=$(grep "^version:" helm/yagp/Chart.yaml | sed "s/version: //")
+        echo "Current version: $VERSION"
+        git tag "v$VERSION"
+        git push origin "v$VERSION"
