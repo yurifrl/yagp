@@ -2,9 +2,6 @@ name: Release Docker GH
 
 on:
   push:
-    # tags:
-    #   - 'v*'
-  workflow_dispatch:
 
 jobs:
   build-and-push:
@@ -50,3 +47,43 @@ jobs:
           platforms: linux/amd64,linux/arm64,linux/arm/v7
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }} 
+
+  release-charts:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: v3.13.2
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Debug
+        run: |
+          curl http://docker-registry.docker-registry.svc.cluster.local:5000/v2/_catalog -v
+      
+      - name: Package and Push Charts
+        run: |
+          # Package the chart
+          helm package "helm/yagp"
+          
+          # Get the version from Chart.yaml
+          version=$(helm show chart "helm/yagp" | grep '^version:' | cut -d' ' -f2)
+          
+          # Push to GHCR
+          helm push yagp-${version}.tgz "oci://ghcr.io/${{ github.repository }}/charts"
+          helm push yagp-${version}.tgz --plain-http "oci://docker-registry.docker-registry.svc.cluster.local:5000/charts"          
