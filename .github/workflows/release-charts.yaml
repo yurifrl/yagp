@@ -49,5 +49,5 @@ jobs:
           version=$(helm show chart "helm/yagp" | grep '^version:' | cut -d' ' -f2)
           
           # Push to GHCR
-          helm push "${chart_name}-${version}.tgz" "oci://ghcr.io/${{ github.repository }}/charts"
-          helm push "${chart_name}-${version}.tgz" "oci://docker-registry.syscd.tech/${{ github.repository }}/charts"
+          helm push yagp-${version}.tgz "oci://ghcr.io/${{ github.repository }}/charts"
+          helm push yagp-${version}.tgz "oci://docker-registry.syscd.tech/${{ github.repository }}/charts"
