@@ -6,10 +6,7 @@ on:
       - main
     paths:
       - 'k8s/charts/**'
-
-env:
-  REGISTRY: ghcr.io
-  OWNER: ${{ github.repository_owner }}
+  workflow_dispatch:
 
 jobs:
   release:
@@ -36,6 +33,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Tailscale
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: "${{ secrets.TS_OAUTH_CLIENT_ID }}"
+          oauth-secret: "${{ secrets.TS_OAUTH_SECRET }}"
+          tags: tag:ci
+
       - name: Package and Push Charts
         run: |
           # Package the chart
@@ -45,4 +49,5 @@ jobs:
           version=$(helm show chart "helm/yagp" | grep '^version:' | cut -d' ' -f2)
           
           # Push to GHCR
-          helm push "${chart_name}-${version}.tgz" "oci://${REGISTRY}/${OWNER}/charts"
+          helm push "${chart_name}-${version}.tgz" "oci://ghcr.io/${{ github.repository }}/charts"
+          helm push "${chart_name}-${version}.tgz" "oci://docker-registry.syscd.tech/${{ github.repository }}/charts"
