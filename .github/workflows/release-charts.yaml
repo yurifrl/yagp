@@ -10,7 +10,7 @@ on:
 
 jobs:
   release:
-    runs-on: gha-runner
+    runs-on: gha-runner-yagp
     permissions:
       contents: read
       packages: write
