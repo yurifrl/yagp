@@ -1,0 +1,12 @@
+services:
+  app:
+    image: docker-registry.syscd.tech/yagp:latest
+    build:
+      context: .
+      target: dev
+    command: zig run src/server/server.zig
+    ports:
+      - 8080:8080
+    volumes:
+      - ./:/app
+    

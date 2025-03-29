@@ -1,0 +1,53 @@
+name: Release Charts
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'k8s/charts/**'
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: v3.13.2
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tailscale
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: "${{ secrets.TS_OAUTH_CLIENT_ID }}"
+          oauth-secret: "${{ secrets.TS_OAUTH_SECRET }}"
+          tags: tag:ci
+
+      - name: Package and Push Charts
+        run: |
+          # Package the chart
+          helm package "helm/yagp"
+          
+          # Get the version from Chart.yaml
+          version=$(helm show chart "helm/yagp" | grep '^version:' | cut -d' ' -f2)
+          
+          # Push to GHCR
+          helm push "${chart_name}-${version}.tgz" "oci://ghcr.io/${{ github.repository }}/charts"
+          helm push "${chart_name}-${version}.tgz" "oci://docker-registry.syscd.tech/${{ github.repository }}/charts"

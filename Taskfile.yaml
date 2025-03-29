@@ -1,0 +1,35 @@
+version: '3'
+
+env:
+  REGISTRY: '{{.REGISTRY | default "docker-registry.syscd.tech"}}'
+
+tasks:
+
+  zig-up:
+    desc: Run the Zig server
+    cmds:
+      - zig run src/server/server.zig
+
+  docker-up:
+    desc: Run the Docker container
+    cmds:
+      - docker compose up --remove-orphans
+
+  docker-push:
+    desc: Push the Docker image to registry
+    cmds:
+      - docker build -t {{.REGISTRY}}/yagp:latest .
+      - docker push {{.REGISTRY}}/yagp:latest
+
+  helm-push:
+    desc: Push Helm chart to registry
+    dir: helm/yagp
+    cmds:
+      - helm package .
+      - helm push yagp-*.tgz oci://{{.REGISTRY}}/charts
+      - rm yagp-*.tgz
+
+  kill-zombies:
+    desc: Kill zombies based on port
+    cmds:
+      - pkill -f 8080
