@@ -2,8 +2,8 @@ name: Release Docker
 
 on:
   push:
-    tags:
-      - 'v*'
+    # tags:
+    #   - 'v*'
   workflow_dispatch:
 
 jobs:
@@ -28,13 +28,6 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      
-      - name: Tailscale
-        uses: tailscale/github-action@v3
-        with:
-          oauth-client-id: "${{ secrets.TS_OAUTH_CLIENT_ID }}"
-          oauth-secret: "${{ secrets.TS_OAUTH_SECRET }}"
-          tags: tag:ci
       
       - name: Docker meta
         id: meta
