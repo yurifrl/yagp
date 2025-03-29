@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - 'k8s/charts/**'
+      - 'helm/yagp/**'
   workflow_dispatch:
 
 jobs:
