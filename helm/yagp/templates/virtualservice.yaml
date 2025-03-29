@@ -8,10 +8,10 @@ spec:
     - istio-system/cloudflare
     - istio-system/tailscale
   hosts:
-    - docker-registry.syscd.live
-    - docker-registry.syscd.tech
-    - docker-registry.syscd.xyz
-    - docker-registry.syscd.dev
+    - yagp.syscd.live
+    - yagp.syscd.tech
+    - yagp.syscd.xyz
+    - yagp.syscd.dev
   http:
     - route:
         - destination:
