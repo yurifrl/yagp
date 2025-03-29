@@ -17,13 +17,13 @@ var importObject = {
     },
 };
 
-WebAssembly.instantiateStreaming(fetch("zig-out/bin/checkerboard.wasm"), importObject).then((result) => {
+WebAssembly.instantiateStreaming(fetch("zig-out/bin/game.wasm"), importObject).then((result) => {
     const wasmMemoryArray = new Uint8Array(memory.buffer);
 
 
-    // Automatically set canvas size as defined in `checkerboard.zig`
+    // Automatically set canvas size as defined in `game.zig`
     const checkerboardSize = result.instance.exports.getCheckerboardSize();
-    const canvas = document.getElementById("checkerboard");
+    const canvas = document.getElementById("game");
     canvas.width = checkerboardSize;
     canvas.height = checkerboardSize;
 
@@ -71,7 +71,7 @@ WebAssembly.instantiateStreaming(fetch("zig-out/bin/checkerboard.wasm"), importO
     <body>
     <center>
         <canvas
-            id="checkerboard"
+            id="game"
             style="image-rendering: pixelated; width: 50%;"
         >
         </canvas>

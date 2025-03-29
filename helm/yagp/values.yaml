@@ -1,0 +1,6 @@
+image:
+  repository: docker-registry.syscd.tech/yagp
+  tag: latest
+  
+service:
+  port: 8080 
