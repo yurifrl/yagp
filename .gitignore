@@ -1,0 +1,47 @@
+# Zig build artifacts
+zig-cache/
+zig-out/
+
+# Object files
+*.o
+*.obj
+*.exe
+*.out
+*.app
+
+# Debug files
+*.dSYM/
+*.pdb
+
+# IDE specific files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS specific files
+.DS_Store
+Thumbs.db
+
+# Dependencies
+deps/
+vendor/
+
+# Build directories
+build/
+dist/
+bin/
+
+# Log files
+*.log
+logs/
+
+# Test artifacts
+test_results/
+coverage/
+
+# Temporary files
+*.tmp
+*.temp
+*.bak 
