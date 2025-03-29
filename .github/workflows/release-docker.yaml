@@ -8,7 +8,7 @@ on:
 
 jobs:
   build-and-push:
-    runs-on: ubuntu-latest
+    runs-on: gha-runner-yagp
     permissions:
       contents: read
       packages: write
