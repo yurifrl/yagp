@@ -1,5 +1,5 @@
 image:
-  repository: docker-registry.syscd.tech/yagp
+  repository: ghcr.io/syscd-tech/yagp
   
 service:
   port: 8080 
