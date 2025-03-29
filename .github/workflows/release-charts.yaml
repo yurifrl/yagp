@@ -43,7 +43,7 @@ jobs:
       - name: Debug
         run: |
           curl https://docker-registry.syscd.tech/v2/_catalog -v
-          curl https://docker-registry.docker-registry.svc.cluster.local/v2/_catalog -v
+          curl https://docker-registry.docker-registry.svc.cluster.local:5000/v2/_catalog -v
       
       - name: Package and Push Charts
         run: |
@@ -55,4 +55,4 @@ jobs:
           
           # Push to GHCR
           helm push yagp-${version}.tgz "oci://ghcr.io/${{ github.repository }}/charts"
-          helm push yagp-${version}.tgz "oci://docker-registry.docker-registry.svc.cluster.local/${{ github.repository }}/charts"
+          helm push yagp-${version}.tgz "oci://docker-registry.docker-registry.svc.cluster.local:5000/${{ github.repository }}/charts"
