@@ -35,14 +35,9 @@ metadata:
   name: {{ .Release.Name }}
 spec:
   gateways:
-    - istio-system/dev
     - istio-system/cloudflare
-    - istio-system/tailscale
   hosts:
-    - yagp.syscd.live
-    - yagp.syscd.tech
-    - yagp.syscd.xyz
-    - yagp.syscd.dev
+    - yagp.monaddaydream.com
   http:
     - route:
         - destination:
