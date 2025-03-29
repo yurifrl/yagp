@@ -40,6 +40,11 @@ jobs:
       #     oauth-secret: "${{ secrets.TS_OAUTH_SECRET }}"
       #     tags: tag:ci
 
+      - name: Debug
+        run: |
+          curl https://docker-registry.syscd.tech/v2/_catalog -v
+          curl https://docker-registry.docker-registry.svc.cluster.local/v2/_catalog -v
+      
       - name: Package and Push Charts
         run: |
           # Package the chart
