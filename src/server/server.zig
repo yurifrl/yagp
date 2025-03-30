@@ -4,6 +4,7 @@ const Request = @import("request.zig");
 const Response = @import("response.zig");
 const Method = Request.Method;
 const stdout = std.io.getStdOut().writer();
+const options = @import("build_options");
 
 const ThreadContext = struct {
     server: std.net.Server,
@@ -26,11 +27,11 @@ fn handleConnection(connection: std.net.Server.Connection, thread_id: usize, all
 
     if (request.method == Method.GET) {
         if (std.mem.eql(u8, request.uri, "/")) {
-            try Response.send_file(connection, "zig-out/htmlout/index.html", allocator);
+            try Response.send_file(connection, options.output_dir ++ options.output_file, allocator);
         } else if (std.mem.eql(u8, request.uri, "/index.wasm")) {
-            try Response.send_file(connection, "zig-out/htmlout/index.wasm", allocator);
+            try Response.send_file(connection, options.output_dir ++ "index.wasm", allocator);
         } else if (std.mem.eql(u8, request.uri, "/index.js")) {
-            try Response.send_file(connection, "zig-out/htmlout/index.js", allocator);
+            try Response.send_file(connection, options.output_dir ++ "index.js", allocator);
         } else {
             try Response.send_404(connection);
         }

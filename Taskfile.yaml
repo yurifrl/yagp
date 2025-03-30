@@ -8,7 +8,12 @@ tasks:
   zig-up:
     desc: Run the Zig server
     cmds:
-      - zig run src/server/server.zig
+      - zig build server
+  
+  zig-build-wasm:
+    desc: Build the Zig server for wasm
+    cmds:
+      - zig build -Dtarget=wasm32-emscripten
 
   docker-up:
     desc: Run the Docker container
@@ -42,11 +47,3 @@ tasks:
         echo "Current version: $VERSION"
         git tag "v$VERSION"
         git push origin "v$VERSION"
-
-  emsdk-setup:
-    desc: Setup Emscripten SDK
-    dir: lib/emsdk
-    cmds:
-      - |
-        ./emsdk install latest
-        ./emsdk activate latest
