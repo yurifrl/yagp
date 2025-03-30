@@ -10,13 +10,6 @@ pub fn build(b: *Build) !void {
     // web exports are completely separate, reference: https://github.com/Not-Nik/raylib-zig/blob/devel/project_setup.sh
     if (target.result.os.tag == .emscripten) {
         try addWasm(b, target, optimize);
-        const stdout_wasm = b.addExecutable(.{
-            .name = "stdout",
-            .root_source_file = b.path("src/main.zig"),
-            .target = target,
-            .optimize = optimize,
-        });
-        b.installArtifact(stdout_wasm);
         return;
     }
 
@@ -33,15 +26,15 @@ pub fn build(b: *Build) !void {
     //--------------------------------------------------------------------------------------------------
     // Native GUI
     //--------------------------------------------------------------------------------------------------
-    // Raylib
+    // GUI - Only set up dependencies if gui step is requested
     const raylib_dep = b.dependency("raylib_zig", .{
         .target = target,
         .optimize = optimize,
     });
-    const raylib = raylib_dep.module("raylib"); // main raylib module
-    const raygui = raylib_dep.module("raygui"); // raygui module
-    const raylib_artifact = raylib_dep.artifact("raylib"); // raylib C library
-    // GUI Step definition
+    const raylib = raylib_dep.module("raylib");
+    const raygui = raylib_dep.module("raygui");
+    const raylib_artifact = raylib_dep.artifact("raylib");
+
     const gui = try addGui(b, target, optimize, raylib, raygui, raylib_artifact);
     const run_gui = b.addRunArtifact(gui);
     const run_gui_step = b.step("gui", "Run the game");
@@ -58,7 +51,7 @@ fn addGui(
 ) !*Build.Step.Compile {
     const gui = b.addExecutable(.{
         .name = "gui",
-        .root_source_file = b.path("src/main.zig"),
+        .root_source_file = b.path("src/gui/main.zig"),
         .optimize = optimize,
         .target = target,
     });

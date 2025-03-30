@@ -1,6 +1,6 @@
-FROM alpine:latest AS zig-installer
+FROM ubuntu:latest AS zig-installer
 ARG TARGETARCH
-RUN apk add --no-cache wget \
+RUN apt-get update && apt-get install -y wget xz-utils \
     && if [ "$TARGETARCH" = "arm64" ]; then \
        wget https://ziglang.org/download/0.14.0/zig-linux-aarch64-0.14.0.tar.xz \
        && tar -xf zig-linux-aarch64-0.14.0.tar.xz \
@@ -15,20 +15,41 @@ RUN apk add --no-cache wget \
        && mv zig-linux-x86_64-0.14.0 /usr/local/zig; \
     fi
 
-FROM alpine:latest AS dev
+FROM ubuntu:latest AS dev
+WORKDIR /app
 COPY --from=zig-installer /usr/local/zig /usr/local/zig
 ENV PATH="/usr/local/zig:${PATH}"
-WORKDIR /app
+
+RUN apt-get update \
+    && apt-get install git cmake clang build-essential ca-certificates python3 -y --no-install-recommends
+
+# RUN apt-get update && apt-get install -y git python3 cmake build-essential
+
+RUN git clone https://github.com/emscripten-core/emsdk.git /emsdk
+RUN cd /emsdk \
+    && ./emsdk install latest \
+    && ./emsdk activate latest
+
+# RUN apt-get install -y libx11-dev libxrender-dev libxext-dev
+# RUN apt-get install -y libxcursor-dev libxrandr-dev libxinerama-dev libxi-dev libxfixes-dev
+# RUN apt-get install -y wayland-protocols libwayland-dev
+# RUN apt-get install -y libgl1-mesa-dev libglx-dev
+# RUN apt-get install -y libxkbcommon-dev
+
+ENV EMSDK="/emsdk"
+ENV PATH="/emsdk/upstream/emscripten:/emsdk/node/20.18.0_64bit/bin:${PATH}"
+
+# RUN . /emsdk/emsdk_env.sh
 
 FROM dev AS builder
 COPY . .
-RUN zig build
+# RUN . /app/emsdk/emsdk_env.sh && zig build
+RUN emsdk list
+RUN . /emsdk/emsdk_env.sh && zig build -Dtarget=wasm32-emscripten
 
 FROM scratch
 WORKDIR /app
-COPY --from=builder /app/zig-out/bin/game.wasm ./zig-out/bin/game.wasm
-COPY --from=builder /app/zig-out/bin/server ./server
-COPY --from=builder /app/index.html ./
+COPY --from=builder /app /app
 
 EXPOSE 8080
 CMD ["./server"]

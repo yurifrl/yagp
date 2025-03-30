@@ -6,6 +6,8 @@ alwaysApply: true
 - Don't write comments unless you are explicitly told to
 - Favor refactor over creating new code
 - Try to write the least code you can, less is more
-- Since this is a Zig project and you have low knowledge of Zig, try to do simple things that you are very certain of
+- When in zig context assume you have low knowledge of Zig, try to do simple things that you are very certain of
+- When in zig context, start by stading the level of certanty of the information you are about to give and when it was the last cut of information on the subject
 - Be assertive and precise not verbose
 - NEVER DELETE COMMENTS
+- Also insi
