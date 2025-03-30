@@ -26,9 +26,11 @@ fn handleConnection(connection: std.net.Server.Connection, thread_id: usize, all
 
     if (request.method == Method.GET) {
         if (std.mem.eql(u8, request.uri, "/")) {
-            try Response.send_file(connection, "index.html", allocator);
-        } else if (std.mem.eql(u8, request.uri, "/zig-out/bin/game.wasm")) {
-            try Response.send_file(connection, "zig-out/bin/game.wasm", allocator);
+            try Response.send_file(connection, "zig-out/htmlout/index.html", allocator);
+        } else if (std.mem.eql(u8, request.uri, "/index.wasm")) {
+            try Response.send_file(connection, "zig-out/htmlout/index.wasm", allocator);
+        } else if (std.mem.eql(u8, request.uri, "/index.js")) {
+            try Response.send_file(connection, "zig-out/htmlout/index.js", allocator);
         } else {
             try Response.send_404(connection);
         }

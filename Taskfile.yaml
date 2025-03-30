@@ -42,3 +42,11 @@ tasks:
         echo "Current version: $VERSION"
         git tag "v$VERSION"
         git push origin "v$VERSION"
+
+  emsdk-setup:
+    desc: Setup Emscripten SDK
+    dir: lib/emsdk
+    cmds:
+      - |
+        ./emsdk install latest
+        ./emsdk activate latest

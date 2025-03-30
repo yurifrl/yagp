@@ -1,3 +1,7 @@
 [tools]
 zls="latest"
 zig="latest"
+emsdk="latest"
+
+[env]
+_.path = "./lib/emsdk"
