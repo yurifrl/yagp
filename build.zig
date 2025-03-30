@@ -3,6 +3,18 @@ const std = @import("std");
 const number_of_pages = 2;
 
 pub fn build(b: *std.Build) void {
+    // ==========================================================================================
+    // Native
+    const raylib_dep = b.dependency("raylib_zig", .{
+        .target = target,
+        .optimize = optimize,
+    });
+
+    const raylib = raylib_dep.module("raylib"); // main raylib module
+    const raygui = raylib_dep.module("raygui"); // raygui module
+    const raylib_artifact = raylib_dep.artifact("raylib"); // raylib C library
+
+    // ==========================================================================================
     // Build WASM game
     const wasm_target = b.resolveTargetQuery(.{
         .cpu_arch = .wasm32,
@@ -28,6 +40,7 @@ pub fn build(b: *std.Build) void {
 
     b.installArtifact(game);
 
+    // ==========================================================================================
     // Build server
     const native_target = b.standardTargetOptions(.{});
     const server = b.addExecutable(.{
