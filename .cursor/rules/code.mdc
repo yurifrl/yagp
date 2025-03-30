@@ -8,3 +8,4 @@ alwaysApply: true
 - Try to write the least code you can, less is more
 - Since this is a Zig project and you have low knowledge of Zig, try to do simple things that you are very certain of
 - Be assertive and precise not verbose
+- NEVER DELETE COMMENTS

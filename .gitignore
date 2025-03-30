@@ -18,7 +18,6 @@ zig-out/
 *.pdb
 
 # IDE specific files
-.vscode/
 .idea/
 *.swp
 *.swo
