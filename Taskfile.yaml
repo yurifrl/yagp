@@ -5,15 +5,15 @@ env:
 
 tasks:
 
-  zig-up:
+  zig-up-web:
     desc: Run the Zig server
     cmds:
-      - zig build server
+      - zig build -Dtarget=wasm32-emscripten --sysroot $(em-config EMSCRIPTEN_ROOT) web
   
-  zig-build-wasm:
-    desc: Build the Zig server for wasm
+  zig-up-gui:
+    desc: Run the Zig server
     cmds:
-      - zig build -Dtarget=wasm32-emscripten --sysroot zig build -Dtarget=wasm32-emscripten --sysroot (em-config EMSCRIPTEN_ROOT)
+      - zig build gui
 
   docker-up:
     desc: Run the Docker container
