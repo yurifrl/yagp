@@ -59,7 +59,7 @@ WORKDIR /app
 ###################################################################################
 FROM dev AS builder
 COPY . .
-RUN zig build -Dtarget=wasm32-emscripten
+RUN zig build -Dtarget=wasm32-emscripten --sysroot /emsdk/upstream/emscripten
 RUN zig build
 
 ###################################################################################
