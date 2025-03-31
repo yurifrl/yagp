@@ -9,4 +9,9 @@ services:
       - 8080:8080
     volumes:
       - ./:/app
-    
+  bin:
+    image: docker-registry.syscd.tech/yagp:latest
+    build:
+      context: .
+    ports:
+      - 8080:8080
