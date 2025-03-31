@@ -28,7 +28,7 @@ pub fn main() anyerror!void {
 
         rl.clearBackground(.white);
 
-        rl.drawText("Hello, World!", 190, 200, 20, .black);
+        rl.drawText("Hello, World!", 190, 200, 20, .red);
         //----------------------------------------------------------------------------------
     }
 }
