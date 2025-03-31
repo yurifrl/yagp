@@ -28,3 +28,5 @@
     - Nice examples, use as reference
 - [Durobot/raylib-zig-examples: Raylib examples ported to Zig](https://github.com/Durobot/raylib-zig-examples)
     - That's a lot of examples
+- [Hot-reloading with Raylib - Zig NEWS](https://zig.news/perky/hot-reloading-with-raylib-4bf9)
+    - Hot reloading in zig
