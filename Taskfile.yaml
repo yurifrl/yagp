@@ -13,7 +13,7 @@ tasks:
   zig-build-wasm:
     desc: Build the Zig server for wasm
     cmds:
-      - zig build -Dtarget=wasm32-emscripten
+      - zig build -Dtarget=wasm32-emscripten --sysroot /Users/nsx000542/.local/share/mise/installs/emsdk/4.0.6/upstream/emscripten
 
   docker-up:
     desc: Run the Docker container

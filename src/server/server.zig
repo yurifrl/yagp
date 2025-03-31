@@ -78,8 +78,7 @@ pub fn main() !void {
     try stdout.print("Server Addr: {any}\n", .{socket._address});
     const server = try socket._address.listen(.{});
 
-    // const thread_count = try std.Thread.getCpuCount();
-    const thread_count = 1;
+    const thread_count = try std.Thread.getCpuCount();
     try stdout.print("Starting server with {d} worker threads (using all available CPU cores)\n", .{thread_count});
 
     var threads = try allocator.alloc(std.Thread, thread_count);

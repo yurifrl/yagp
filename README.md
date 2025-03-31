@@ -16,3 +16,15 @@
     - Raylib-zig repo. Manually tweaked, auto-generated raylib bindings for zig
 - [TCP Server in Zig - Part 1 - Single Threaded](https://www.openmymind.net/TCP-Server-In-Zig-Part-1-Single-Threaded/)
     - Another web server example in Zig
+- [jdah/zigsteroids: asteroids in zig](https://github.com/jdah/zigsteroids/tree/main)
+    - Asteroids in Zig
+- [ryupold/examples-raylib.zig: Example usage of raylib.zig bindings](https://github.com/ryupold/examples-raylib.zig)
+    - Example usage of raylib.zig bindings
+- [SimonLSchlee/zigraylib: a fairly minimal raylib zig example codebase using the zig package manager](https://github.com/SimonLSchlee/zigraylib/tree/main)
+    - using c raylib?
+- [SimonLSchlee/zigraylib: a fairly minimal raylib zig example codebase using the zig package manager](https://github.com/SimonLSchlee/zigraylib?tab=readme-ov-file)
+- [raylib - cheatsheet](https://www.raylib.com/cheatsheet/cheatsheet.html)
+- [Raylib 15 Game - Showcase - Ziggit](https://ziggit.dev/t/raylib-15-game/5233)
+    - Nice examples, use as reference
+- [Durobot/raylib-zig-examples: Raylib examples ported to Zig](https://github.com/Durobot/raylib-zig-examples)
+    - That's a lot of examples
