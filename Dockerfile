@@ -60,6 +60,7 @@ WORKDIR /app
 FROM dev AS builder
 COPY . .
 RUN mkdir -p /root/.cache/zig
+RUN git ls-remote https://github.com/emscripten-core/emsdk.git # Test connectivity before zig build uses git
 RUN zig build -Dtarget=wasm32-emscripten --sysroot /emsdk/upstream/emscripten
 RUN zig build
 
