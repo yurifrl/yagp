@@ -35,9 +35,9 @@ metadata:
   name: {{ .Release.Name }}
 spec:
   gateways:
-    {{ toYaml .Values.istio.gateways | nindent 4 }}
+    {{ toYaml .Values.gateways | nindent 4 }}
   hosts:
-    {{ toYaml .Values.istio.hosts | nindent 4 }}
+    {{ toYaml .Values.hosts | nindent 4 }}
   http:
     - route:
         - destination:
