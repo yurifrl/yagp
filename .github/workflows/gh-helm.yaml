@@ -2,6 +2,11 @@ name: GH Helm
 
 on:
   push:
+    branches:
+      - main
+    paths:
+      - 'helm/yagp/**'
+  workflow_dispatch:
 
 jobs:
   release-charts:
