@@ -44,3 +44,14 @@ spec:
             host: {{ .Release.Name }}
             port:
                 number: {{ .Values.service.port }}
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: {{ .Release.Name }}
+spec:
+  host: {{ .Release.Name }}.{{ .Release.Namespace }}.svc.cluster.local # Targeting the k8s service
+  trafficPolicy:
+    connectionPool:
+      http:
+        h2UpgradePolicy: DO_NOT_UPGRADE # Force HTTP/1.1
