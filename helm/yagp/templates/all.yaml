@@ -35,9 +35,9 @@ metadata:
   name: {{ .Release.Name }}
 spec:
   gateways:
-    - istio-system/cloudflare
+    {{ toYaml .Values.istio.gateways | nindent 4 }}
   hosts:
-    - yagp.monaddaydream.com
+    {{ toYaml .Values.istio.hosts | nindent 4 }}
   http:
     - route:
         - destination:
