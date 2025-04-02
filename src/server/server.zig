@@ -1,93 +1,59 @@
 const std = @import("std");
-const net = std.net;
-const http = std.http;
+const httpz = @import("httpz");
 
-pub fn Server(comptime Context: type) type {
-    return struct {
-        server: net.Server,
-        context: Context,
-        address: net.Address,
+pub fn main() !void {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    const allocator = gpa.allocator();
 
-        const Self = @This();
+    // More advance cases will use a custom "Handler" instead of "void".
+    // The last parameter is our handler instance, since we have a "void"
+    // handler, we passed a void ({}) value.
+    var server = try httpz.Server(void).init(allocator, .{ .port = 8080 }, {});
+    defer {
+        // clean shutdown, finishes serving any live request
+        server.stop();
+        server.deinit();
+    }
 
-        pub fn init(address: net.Address, context: Context) !Self {
-            const server = try address.listen(.{});
-            return Self{
-                .server = server,
-                .context = context,
-                .address = address,
-            };
-        }
+    var router = try server.router(.{});
+    router.get("/*", serveFiles, .{});
 
-        pub fn deinit(self: *Self) void {
-            self.server.deinit();
-        }
-
-        pub fn start(self: *Self, handle_request_fn: *const fn (*http.Server.Request, Context) anyerror!void) void {
-            while (true) {
-                var connection = self.server.accept() catch |err| {
-                    std.debug.print("Connection to client interrupted: {}\n", .{err});
-                    continue;
-                };
-                defer connection.stream.close();
-
-                var read_buffer: [1024]u8 = undefined;
-                var http_server = http.Server.init(connection, &read_buffer);
-
-                var request = http_server.receiveHead() catch |err| {
-                    std.debug.print("Could not read head: {}\n", .{err});
-                    continue;
-                };
-
-                handle_request_fn(&request, self.context) catch |err| {
-                    std.debug.print("Could not handle request: {}\n", .{err});
-                    continue;
-                };
-            }
-        }
-    };
+    std.debug.print("Server listening on port 8080\n", .{});
+    // blocks
+    try server.listen();
 }
 
-// Example handler for requests
-fn defaultRequestHandler(request: *http.Server.Request, _: void) !void {
-    const target = request.head.target;
-    std.debug.print("Handling request for {s}\n", .{target});
+fn serveFiles(req: *httpz.Request, res: *httpz.Response) !void {
+    const allocator = res.arena;
+    const path = req.url.path;
 
-    // Get file path from target
-    const allocator = std.heap.page_allocator;
-    const file_target = if (std.mem.eql(u8, target, "/")) "/index.html" else target;
-
-    // Prevent path traversal attacks by checking for ".." sequences
-    if (std.mem.indexOf(u8, file_target, "..") != null) {
-        try request.respond("Forbidden\n", .{ .status = .forbidden });
+    // Prevent directory traversal attacks
+    if (std.mem.indexOf(u8, path, "..") != null) {
+        res.status = 403;
+        res.body = "Forbidden";
         return;
     }
 
-    const file_path = try std.fmt.allocPrint(allocator, "zig-out/htmlout{s}", .{file_target});
-    defer allocator.free(file_path);
+    // Map root path to index.html
+    const file_path = if (std.mem.eql(u8, path, "/"))
+        try std.fmt.allocPrint(allocator, "zig-out/htmlout/index.html", .{})
+    else
+        try std.fmt.allocPrint(allocator, "zig-out/htmlout{s}", .{path});
 
-    const file = std.fs.cwd().openFile(file_path, .{}) catch |err| {
-        if (err == error.FileNotFound) {
-            try request.respond("File not found\n", .{ .status = .not_found });
-            return;
-        }
-        return err;
+    // Try to open the file
+    const file = std.fs.cwd().openFile(file_path, .{}) catch {
+        std.debug.print("File not found: {s}\n", .{file_path});
+        res.status = 404;
+        res.body = "File not found";
+        return;
     };
     defer file.close();
 
+    // Read file content
     const stat = try file.stat();
-    const contents = try allocator.alloc(u8, @intCast(stat.size));
-    defer allocator.free(contents);
+    const content = try file.readToEndAlloc(allocator, @as(usize, @intCast(stat.size)));
 
-    _ = try file.readAll(contents);
-    try request.respond(contents, .{});
-}
-
-pub fn main() !void {
-    const addr = try net.Address.parseIp4("127.0.0.1", 8080);
-    var server = try Server(void).init(addr, {});
-    defer server.deinit();
-
-    std.debug.print("Server listening on {}\n", .{addr});
-    server.start(&defaultRequestHandler);
+    std.debug.print("Serving file: {s} ({d} bytes)\n", .{ file_path, content.len });
+    res.status = 200;
+    res.body = content;
 }

@@ -69,6 +69,14 @@ fn addServer(
     });
     b.installArtifact(server);
 
+    const httpz = b.dependency("httpz", .{
+        .target = target,
+        .optimize = optimize,
+    });
+
+    // the executable from your call to b.addExecutable(...)
+    server.root_module.addImport("httpz", httpz.module("httpz"));
+
     const run_server = b.addRunArtifact(server);
     const run_server_step = b.step("server", "Run the server");
     run_server_step.dependOn(&run_server.step);
