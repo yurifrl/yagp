@@ -15,7 +15,7 @@ pub fn main() !void {
     // More advance cases will use a custom "Handler" instead of "void".
     // The last parameter is our handler instance, since we have a "void"
     // handler, we passed a void ({}) value.
-    var server = try httpz.Server(void).init(allocator, .{ .port = 8080 }, {});
+    var server = try httpz.Server(void).init(allocator, .{ .port = 8080, .address = "0.0.0.0" }, {});
     defer {
         // clean shutdown, finishes serving any live request
         server.stop();

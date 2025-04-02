@@ -76,8 +76,9 @@ RUN zig build
 ###################################################################################
 # Runner Layer
 ###################################################################################
-FROM scratch
+FROM alpine
+WORKDIR /app
 COPY --from=builder /app/zig-out /app/zig-out
 
 EXPOSE 8080
-CMD ["/app/zig-out/bin/server"]
+CMD ["zig-out/bin/server"]
