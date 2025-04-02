@@ -14,8 +14,12 @@
     - The simplest example on how to use the same code for native and wasm
 - [Not-Nik/raylib-zig](https://github.com/Not-Nik/raylib-zig)
     - Raylib-zig repo. Manually tweaked, auto-generated raylib bindings for zig
-- [TCP Server in Zig - Part 1 - Single Threaded](https://www.openmymind.net/TCP-Server-In-Zig-Part-1-Single-Threaded/)
-    - Another web server example in Zig
+- Zip Server
+    - [7  Project 2 - Building a HTTP Server from scratch – Introduction to Zig](https://pedropark99.github.io/zig-book/Chapters/04-http-server.html)
+    - [Writing a HTTP Server in Zig](https://www.pedaldrivenprogramming.com/2024/03/writing-a-http-server-in-zig/)
+    - [Zig Bits 0x4: Building an HTTP client/server from scratch - Orhun's Blog](https://blog.orhun.dev/zig-bits-04/)
+    - [TCP Server in Zig - Part 1 - Single Threaded](https://www.openmymind.net/TCP-Server-In-Zig-Part-1-Single-Threaded/)
+        - Another web server example in Zig
 - [jdah/zigsteroids: asteroids in zig](https://github.com/jdah/zigsteroids/tree/main)
     - Asteroids in Zig
 - [ryupold/examples-raylib.zig: Example usage of raylib.zig bindings](https://github.com/ryupold/examples-raylib.zig)

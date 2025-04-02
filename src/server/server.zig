@@ -1,83 +1,86 @@
 const std = @import("std");
-const SocketConf = @import("config.zig");
-const Request = @import("request.zig");
-const Response = @import("response.zig");
-const Method = Request.Method;
-const stdout = std.io.getStdOut().writer();
-const out_dir = "zig-out/htmlout";
-const allowed_ext = [_][]const u8{ ".html", ".js", ".wasm" };
-// This is does nothing, is used but no one sets to false
-// I plan to use it to kill the thread, but I dont know how to call this in siginit
-var running = std.atomic.Value(bool).init(true);
+const net = std.net;
+const http = std.http;
 
-const ThreadContext = struct {
-    server: std.net.Server,
-    allocator: std.mem.Allocator,
-    thread_id: usize,
-};
+pub fn Server(comptime Context: type) type {
+    return struct {
+        server: net.Server,
+        context: Context,
+        address: net.Address,
 
-fn handleConnection(connection: std.net.Server.Connection, thread_id: usize, allocator: std.mem.Allocator) !void {
-    defer connection.stream.close();
+        const Self = @This();
 
-    var buffer: [1000]u8 = undefined;
-    for (0..buffer.len) |i| {
-        buffer[i] = 0;
-    }
-    try Request.read_request(connection, buffer[0..buffer.len]);
-    const request = Request.parse_request(buffer[0..buffer.len]);
+        pub fn init(address: net.Address, context: Context) !Self {
+            const server = try address.listen(.{});
+            return Self{
+                .server = server,
+                .context = context,
+                .address = address,
+            };
+        }
 
-    const timestamp = std.time.timestamp();
-    try stdout.print("[{d}] [Thread-{d}] [{s}] {s} from {}\n", .{ timestamp, thread_id, @tagName(request.method), request.uri, connection.address });
+        pub fn deinit(self: *Self) void {
+            self.server.deinit();
+        }
 
-    if (request.method == Method.GET) {
-        const path = if (std.mem.eql(u8, request.uri, "/")) "index.html" else request.uri[1..];
-        for (allowed_ext) |ext| {
-            if (std.mem.endsWith(u8, path, ext)) {
-                try Response.send_file(connection, try std.fmt.allocPrint(allocator, "{s}/{s}", .{ out_dir, path }), allocator);
-                return;
+        pub fn start(self: *Self, handle_request_fn: *const fn (*http.Server.Request, Context) anyerror!void) void {
+            while (true) {
+                var connection = self.server.accept() catch |err| {
+                    std.debug.print("Connection to client interrupted: {}\n", .{err});
+                    continue;
+                };
+                defer connection.stream.close();
+
+                var read_buffer: [1024]u8 = undefined;
+                var http_server = http.Server.init(connection, &read_buffer);
+
+                var request = http_server.receiveHead() catch |err| {
+                    std.debug.print("Could not read head: {}\n", .{err});
+                    continue;
+                };
+
+                handle_request_fn(&request, self.context) catch |err| {
+                    std.debug.print("Could not handle request: {}\n", .{err});
+                    continue;
+                };
             }
         }
-        try Response.send_404(connection);
-    }
+    };
 }
 
-fn workerFn(ctx: *ThreadContext) !void {
-    while (running.load(.monotonic)) {
-        const connection = try ctx.server.accept();
-        handleConnection(connection, ctx.thread_id, ctx.allocator) catch |err| {
-            try stdout.print("[Thread-{d}] Error handling connection: {any}\n", .{ ctx.thread_id, err });
-        };
-    }
+// Example handler for requests
+fn defaultRequestHandler(request: *http.Server.Request, _: void) !void {
+    const target = request.head.target;
+    std.debug.print("Handling request for {s}\n", .{target});
+
+    // Get file path from target
+    const allocator = std.heap.page_allocator;
+    const file_target = if (std.mem.eql(u8, target, "/")) "/index.html" else target;
+    const file_path = try std.fmt.allocPrint(allocator, "zig-out/htmlout{s}", .{file_target});
+    defer allocator.free(file_path);
+
+    const file = std.fs.cwd().openFile(file_path, .{}) catch |err| {
+        if (err == error.FileNotFound) {
+            try request.respond("File not found\n", .{ .status = .not_found });
+            return;
+        }
+        return err;
+    };
+    defer file.close();
+
+    const stat = try file.stat();
+    const contents = try allocator.alloc(u8, @intCast(stat.size));
+    defer allocator.free(contents);
+
+    _ = try file.readAll(contents);
+    try request.respond(contents, .{});
 }
 
 pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
-    const allocator = gpa.allocator();
+    const addr = try net.Address.parseIp4("127.0.0.1", 8080);
+    var server = try Server(void).init(addr, {});
+    defer server.deinit();
 
-    const socket = try SocketConf.Socket.init();
-    try stdout.print("Server Addr: {any}\n", .{socket._address});
-    const server = try socket._address.listen(.{});
-
-    const thread_count = try std.Thread.getCpuCount();
-    try stdout.print("Starting server with {d} worker threads (using all available CPU cores)\n", .{thread_count});
-
-    var threads = try allocator.alloc(std.Thread, thread_count);
-    defer allocator.free(threads);
-
-    var contexts = try allocator.alloc(ThreadContext, thread_count);
-    defer allocator.free(contexts);
-
-    for (0..thread_count) |i| {
-        contexts[i] = ThreadContext{
-            .server = server,
-            .allocator = allocator,
-            .thread_id = i,
-        };
-        threads[i] = try std.Thread.spawn(.{}, workerFn, .{&contexts[i]});
-    }
-
-    for (threads) |thread| {
-        thread.join();
-    }
+    std.debug.print("Server listening on {}\n", .{addr});
+    server.start(&defaultRequestHandler);
 }
