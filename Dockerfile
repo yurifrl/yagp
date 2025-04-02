@@ -80,7 +80,7 @@ RUN zig build
 ###################################################################################
 # Runner Layer
 ###################################################################################
-FROM ubuntu:bookworm-slim
+FROM ubuntu
 COPY --from=builder /app/zig-out /app/zig-out
 
 EXPOSE 8080
