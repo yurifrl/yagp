@@ -69,14 +69,6 @@ fn addServer(
     });
     b.installArtifact(server);
 
-    const zap = b.dependency("zap", .{
-        .target = target,
-        .optimize = optimize,
-        .openssl = false, // set to true to enable TLS support
-    });
-
-    server.root_module.addImport("zap", zap.module("zap"));
-
     const run_server = b.addRunArtifact(server);
     const run_server_step = b.step("server", "Run the server");
     run_server_step.dependOn(&run_server.step);
