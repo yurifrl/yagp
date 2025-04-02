@@ -39,7 +39,7 @@ fn addGui(
     raylib_artifact: *std.Build.Step.Compile,
 ) !*std.Build.Step.Compile {
     const gui = b.addExecutable(.{
-        .name = "'$PROJECT_NAME'",
+        .name = "gui",
         .root_source_file = b.path("src/main.zig"),
         .optimize = optimize,
         .target = target,

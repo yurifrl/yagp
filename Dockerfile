@@ -57,19 +57,31 @@ WORKDIR /app
 ###################################################################################
 # Builder Layer
 ###################################################################################
-FROM dev AS builder
-COPY . .
+# FROM dev AS builder
+# COPY . .
+# RUN mkdir -p /root/.cache/zig
+# RUN zig build --fetch
+# RUN zig build -Dtarget=wasm32-emscripten --sysroot /emsdk/upstream/emscripten
+# RUN zig build
+
+FROM dev AS dependencies
+# Copy only files needed for dependency resolution
+COPY build.zig build.zig
+COPY build.zig.zon build.zig.zon
 RUN mkdir -p /root/.cache/zig
 RUN zig build --fetch
+
+FROM dev AS builder
+COPY --from=dependencies /root/.cache/zig /root/.cache/zig
+COPY . .
 RUN zig build -Dtarget=wasm32-emscripten --sysroot /emsdk/upstream/emscripten
 RUN zig build
 
 ###################################################################################
 # Runner Layer
 ###################################################################################
-FROM scratch
-WORKDIR /app
-COPY --from=builder /app/zig-out /app/zig-out
+FROM debian:bookworm-slim
+COPY --from=builder /app/zig-out/bin/server /server
 
 EXPOSE 8080
-CMD ["zig-out/bin/server"]
+CMD ["/server"]
