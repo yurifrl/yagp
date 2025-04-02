@@ -56,6 +56,13 @@ fn defaultRequestHandler(request: *http.Server.Request, _: void) !void {
     // Get file path from target
     const allocator = std.heap.page_allocator;
     const file_target = if (std.mem.eql(u8, target, "/")) "/index.html" else target;
+
+    // Prevent path traversal attacks by checking for ".." sequences
+    if (std.mem.indexOf(u8, file_target, "..") != null) {
+        try request.respond("Forbidden\n", .{ .status = .forbidden });
+        return;
+    }
+
     const file_path = try std.fmt.allocPrint(allocator, "zig-out/htmlout{s}", .{file_target});
     defer allocator.free(file_path);
 
