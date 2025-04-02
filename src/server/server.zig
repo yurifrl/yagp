@@ -1,6 +1,13 @@
 const std = @import("std");
 const httpz = @import("httpz");
 
+const mimeTypes = .{
+    .{ ".html", "text/html" },
+    .{ ".css", "text/css" },
+    .{ ".js", "application/javascript" },
+    .{ ".wasm", "application/wasm" },
+};
+
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
@@ -21,6 +28,16 @@ pub fn main() !void {
     std.debug.print("Server listening on port 8080\n", .{});
     // blocks
     try server.listen();
+}
+
+fn mimeForPath(path: []const u8) []const u8 {
+    const extension = std.fs.path.extension(path);
+    inline for (mimeTypes) |kv| {
+        if (std.mem.eql(u8, extension, kv[0])) {
+            return kv[1];
+        }
+    }
+    return "application/octet-stream";
 }
 
 fn serveFiles(req: *httpz.Request, res: *httpz.Response) !void {
@@ -52,6 +69,10 @@ fn serveFiles(req: *httpz.Request, res: *httpz.Response) !void {
     // Read file content
     const stat = try file.stat();
     const content = try file.readToEndAlloc(allocator, @as(usize, @intCast(stat.size)));
+
+    // Set content type based on file extension
+    const content_type = mimeForPath(file_path);
+    res.header("Content-Type", content_type);
 
     std.debug.print("Serving file: {s} ({d} bytes)\n", .{ file_path, content.len });
     res.status = 200;
