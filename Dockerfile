@@ -80,8 +80,8 @@ RUN zig build
 ###################################################################################
 # Runner Layer
 ###################################################################################
-FROM debian:bookworm-slim
-COPY --from=builder /app/zig-out/bin/server /server
+FROM ubuntu:bookworm-slim
+COPY --from=builder /app/zig-out /app/zig-out
 
 EXPOSE 8080
-CMD ["/server"]
+CMD ["/app/zig-out/bin/server"]
