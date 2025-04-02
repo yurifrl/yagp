@@ -4,14 +4,10 @@ const Request = @import("request.zig");
 const Response = @import("response.zig");
 const Method = Request.Method;
 const stdout = std.io.getStdOut().writer();
-const options = @import("build_options");
-const posix = std.posix;
-const os = std.os;
-const shared_config = @import("shared_config");
-const config = shared_config.Config.init();
 const out_dir = "zig-out/htmlout";
 const allowed_ext = [_][]const u8{ ".html", ".js", ".wasm" };
-// This is dead code, I plan to use it to kill the thread, but I dont know how to call this in sigini
+// This is does nothing, is used but no one sets to false
+// I plan to use it to kill the thread, but I dont know how to call this in siginit
 var running = std.atomic.Value(bool).init(true);
 
 const ThreadContext = struct {
@@ -54,22 +50,7 @@ fn workerFn(ctx: *ThreadContext) !void {
     }
 }
 
-pub fn sig_handler(sig: i32) callconv(.C) void {
-    std.debug.print("Caught signal: {}\n", .{sig});
-    running.store(false, .monotonic);
-    std.process.exit(0);
-}
 pub fn main() !void {
-    // Manage the Ctrl + C
-    const act = os.linux.Sigaction{
-        .handler = .{ .handler = sig_handler },
-        .mask = os.linux.empty_sigset,
-        .flags = 0,
-    };
-    if (os.linux.sigaction(os.linux.SIG.INT, &act, null) != 0) {
-        return error.SignalHandlerError;
-    }
-
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
