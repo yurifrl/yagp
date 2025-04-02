@@ -55,15 +55,8 @@ ENV PATH="/usr/local/zig:${PATH}"
 WORKDIR /app
 
 ###################################################################################
-# Builder Layer
+# Dependencies Layer
 ###################################################################################
-# FROM dev AS builder
-# COPY . .
-# RUN mkdir -p /root/.cache/zig
-# RUN zig build --fetch
-# RUN zig build -Dtarget=wasm32-emscripten --sysroot /emsdk/upstream/emscripten
-# RUN zig build
-
 FROM dev AS dependencies
 # Copy only files needed for dependency resolution
 COPY build.zig build.zig
@@ -71,6 +64,9 @@ COPY build.zig.zon build.zig.zon
 RUN mkdir -p /root/.cache/zig
 RUN zig build --fetch
 
+###################################################################################
+# Builder Layer
+###################################################################################
 FROM dev AS builder
 COPY --from=dependencies /root/.cache/zig /root/.cache/zig
 COPY . .
