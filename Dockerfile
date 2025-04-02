@@ -76,7 +76,7 @@ RUN zig build
 ###################################################################################
 # Runner Layer
 ###################################################################################
-FROM alpine
+FROM scratch
 WORKDIR /app
 COPY --from=builder /app/zig-out /app/zig-out
 
