@@ -23,7 +23,7 @@ pub fn build(b: *std.Build) !void {
     //--------------------------------------------------------------------------------------------------
     // Native Server
     //--------------------------------------------------------------------------------------------------
-    _ = try addServer(b, target);
+    _ = try addServer(b, target, optimize);
 
     //--------------------------------------------------------------------------------------------------
     // Native GUI
@@ -56,14 +56,26 @@ fn addGui(
     return gui;
 }
 
-fn addServer(b: *std.Build, target: std.Build.ResolvedTarget) !*std.Build.Step.Compile {
+fn addServer(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+) !*std.Build.Step.Compile {
     const server = b.addExecutable(.{
         .name = "server",
         .root_source_file = b.path("src/server/server.zig"),
         .target = target,
-        .optimize = .ReleaseSafe,
+        .optimize = optimize,
     });
     b.installArtifact(server);
+
+    const zap = b.dependency("zap", .{
+        .target = target,
+        .optimize = optimize,
+        .openssl = false, // set to true to enable TLS support
+    });
+
+    server.root_module.addImport("zap", zap.module("zap"));
 
     const run_server = b.addRunArtifact(server);
     const run_server_step = b.step("server", "Run the server");

@@ -3,4 +3,7 @@ image:
   tag: "" # Default to Chart.yaml appVersion
   
 service:
-  port: 8080 
+  port: 8080
+
+gateways: []
+hosts: []
