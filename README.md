@@ -20,6 +20,7 @@
     - [Zig Bits 0x4: Building an HTTP client/server from scratch - Orhun's Blog](https://blog.orhun.dev/zig-bits-04/)
     - [TCP Server in Zig - Part 1 - Single Threaded](https://www.openmymind.net/TCP-Server-In-Zig-Part-1-Single-Threaded/)
         - Another web server example in Zig
+        - This is very complete example, I should follow it sometime
 - [jdah/zigsteroids: asteroids in zig](https://github.com/jdah/zigsteroids/tree/main)
     - Asteroids in Zig
 - [ryupold/examples-raylib.zig: Example usage of raylib.zig bindings](https://github.com/ryupold/examples-raylib.zig)
@@ -34,3 +35,10 @@
     - That's a lot of examples
 - [Hot-reloading with Raylib - Zig NEWS](https://zig.news/perky/hot-reloading-with-raylib-4bf9)
     - Hot reloading in zig
+
+- Assets
+    - [Town Sprites Pack | FREE by RedEyeGames](https://red-eye-games.itch.io/freetownspritespack?download)
+        - Using
+    - [City tilemap 32x32 by AvKov](https://avkov.itch.io/city-tilemap-32x32)
+    - [City Pack - Top Down - Pixel Art by NYKNCK](https://nyknck.itch.io/citypackpixelart)
+    - [Top Down City Pack by Buggy Studio](https://buggystudio.itch.io/top-down-city-pack)
