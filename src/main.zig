@@ -1,16 +1,11 @@
-// raylib-zig (c) Nikolas Wipper 2023
-
 const rl = @import("raylib");
 const std = @import("std");
 const builtin = @import("builtin");
 
-// Disable debug features on WebAssembly targets
-const is_wasm = builtin.target.isWasm();
+const is_wasm = builtin.target.os.tag == .emscripten;
 
-// Completely eliminate debug code when targeting WebAssembly
-fn debugPrint(comptime _: []const u8, _: anytype) void {
-    return;
-}
+// Fixed memory buffer for WebAssembly
+var buffer: [1 * 1024 * 1024]u8 = undefined; // 1MB fixed buffer
 
 const GameObject = struct {
     position: rl.Vector2, // Screen position
@@ -80,9 +75,9 @@ pub fn main() anyerror!void {
     rl.initWindow(screenWidth, screenHeight, "YAGP");
     defer rl.closeWindow(); // Close window and OpenGL context
 
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    const allocator = gpa.allocator();
-    defer _ = gpa.deinit();
+    // Use fixed buffer allocator for WebAssembly to prevent out of memory errors
+    var fixed_buffer_allocator = std.heap.FixedBufferAllocator.init(&buffer);
+    const allocator = fixed_buffer_allocator.allocator();
 
     var state = try GameState.init(allocator);
     defer state.deinit();
@@ -106,11 +101,6 @@ pub fn main() anyerror!void {
                 .color = state.selectedObject.color,
                 .size = state.selectedObject.size,
             });
-            debugPrint("left\n", .{});
-        } else if (rl.isMouseButtonPressed(.middle)) {
-            debugPrint("middle\n", .{});
-        } else if (rl.isMouseButtonPressed(.right)) {
-            debugPrint("right\n", .{});
         }
 
         if (rl.isKeyPressed(.one)) {
@@ -118,19 +108,16 @@ pub fn main() anyerror!void {
             state.selectedObject.objectType = .building1;
             state.selectedObject.size = props.size;
             state.selectedObject.color = props.color;
-            debugPrint("one\n", .{});
         } else if (rl.isKeyPressed(.two)) {
             const props = getBuildingProperties(.building2);
             state.selectedObject.objectType = .building2;
             state.selectedObject.size = props.size;
             state.selectedObject.color = props.color;
-            debugPrint("two\n", .{});
         } else if (rl.isKeyPressed(.three)) {
             const props = getBuildingProperties(.building3);
             state.selectedObject.objectType = .building3;
             state.selectedObject.size = props.size;
             state.selectedObject.color = props.color;
-            debugPrint("three\n", .{});
         }
         //----------------------------------------------------------------------------------
 
