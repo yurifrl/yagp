@@ -4,6 +4,9 @@ const rl = @import("raylib");
 const std = @import("std");
 const builtin = @import("builtin");
 
+// Disable debug features on WebAssembly targets
+const is_wasm = builtin.target.isWasm();
+
 // Completely eliminate debug code when targeting WebAssembly
 fn debugPrint(comptime _: []const u8, _: anytype) void {
     return;
@@ -13,8 +16,6 @@ const GameObject = struct {
     position: rl.Vector2, // Screen position
     objectType: ObjectType,
     color: rl.Color,
-    id: u32,
-    slot: u8, // Position from 0 to 9
     size: rl.Vector2, // Size of the rectangle
 };
 
@@ -25,76 +26,48 @@ const ObjectType = enum {
     // Add more building types as needed
 };
 
-const BuildingInfo = struct {
-    size: rl.Vector2,
-    color: rl.Color,
-};
-
-const Assets = struct {
-    buildings: std.EnumArray(ObjectType, BuildingInfo),
-
-    pub fn init() Assets {
-        var assets = Assets{
-            .buildings = std.EnumArray(ObjectType, BuildingInfo).initUndefined(),
-        };
-
-        // Define building information
-        assets.buildings.set(.building1, .{
+fn getBuildingProperties(objectType: ObjectType) struct { size: rl.Vector2, color: rl.Color } {
+    return switch (objectType) {
+        .building1 => .{
             .size = rl.Vector2.init(50, 45),
             .color = rl.Color.red,
-        });
-        assets.buildings.set(.building2, .{
+        },
+        .building2 => .{
             .size = rl.Vector2.init(50, 45),
             .color = rl.Color.blue,
-        });
-        assets.buildings.set(.building3, .{
+        },
+        .building3 => .{
             .size = rl.Vector2.init(12, 150),
             .color = rl.Color.purple,
-        });
-
-        return assets;
-    }
-
-    pub fn deinit() void {
-        // Nothing to deinit anymore
-    }
-
-    pub fn getBuildingInfo(self: *const Assets, objectType: ObjectType) BuildingInfo {
-        return self.buildings.get(objectType);
-    }
-};
+        },
+    };
+}
 
 const GameState = struct {
     objects: std.ArrayList(GameObject),
     cursorPosition: rl.Vector2,
     isRunning: bool,
-    assets: Assets,
     selectedObject: GameObject,
     const max_objects = 100; // Limit objects to prevent memory issues
 
     pub fn init(allocator: std.mem.Allocator) !GameState {
-        var assets = Assets.init();
-        const defaultBuildingInfo = assets.getBuildingInfo(.building1);
+        const defaultProps = getBuildingProperties(.building1);
 
         return .{
             .objects = std.ArrayList(GameObject).init(allocator),
             .cursorPosition = rl.Vector2.init(0, 0),
             .isRunning = true,
-            .assets = assets,
             .selectedObject = .{
                 .position = rl.Vector2.init(0, 0),
                 .objectType = .building1,
-                .color = defaultBuildingInfo.color,
-                .id = 0,
-                .slot = 0,
-                .size = defaultBuildingInfo.size,
+                .color = defaultProps.color,
+                .size = defaultProps.size,
             },
         };
     }
 
     pub fn deinit(self: *GameState) void {
         self.objects.deinit();
-        Assets.deinit();
     }
 };
 
@@ -131,8 +104,6 @@ pub fn main() anyerror!void {
                 .position = state.selectedObject.position,
                 .objectType = state.selectedObject.objectType,
                 .color = state.selectedObject.color,
-                .id = 0,
-                .slot = 0,
                 .size = state.selectedObject.size,
             });
             debugPrint("left\n", .{});
@@ -143,22 +114,22 @@ pub fn main() anyerror!void {
         }
 
         if (rl.isKeyPressed(.one)) {
-            const buildingInfo = state.assets.getBuildingInfo(.building1);
+            const props = getBuildingProperties(.building1);
             state.selectedObject.objectType = .building1;
-            state.selectedObject.size = buildingInfo.size;
-            state.selectedObject.color = buildingInfo.color;
+            state.selectedObject.size = props.size;
+            state.selectedObject.color = props.color;
             debugPrint("one\n", .{});
         } else if (rl.isKeyPressed(.two)) {
-            const buildingInfo = state.assets.getBuildingInfo(.building2);
+            const props = getBuildingProperties(.building2);
             state.selectedObject.objectType = .building2;
-            state.selectedObject.size = buildingInfo.size;
-            state.selectedObject.color = buildingInfo.color;
+            state.selectedObject.size = props.size;
+            state.selectedObject.color = props.color;
             debugPrint("two\n", .{});
         } else if (rl.isKeyPressed(.three)) {
-            const buildingInfo = state.assets.getBuildingInfo(.building3);
+            const props = getBuildingProperties(.building3);
             state.selectedObject.objectType = .building3;
-            state.selectedObject.size = buildingInfo.size;
-            state.selectedObject.color = buildingInfo.color;
+            state.selectedObject.size = props.size;
+            state.selectedObject.color = props.color;
             debugPrint("three\n", .{});
         }
         //----------------------------------------------------------------------------------
