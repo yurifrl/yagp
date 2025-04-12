@@ -51,3 +51,10 @@ Systems: normal functions
     - [City tilemap 32x32 by AvKov](https://avkov.itch.io/city-tilemap-32x32)
     - [City Pack - Top Down - Pixel Art by NYKNCK](https://nyknck.itch.io/citypackpixelart)
     - [Top Down City Pack by Buggy Studio](https://buggystudio.itch.io/top-down-city-pack)
+
+- [SimCities and SimCrises - International City Gaming Conference keynote](https://molleindustria.org/GamesForCities/)
+- [SimHacker/MicropolisCore: SimCity/Micropolis C++ Core](https://github.com/SimHacker/MicropolisCore)
+    - [Micropolis Web Demo 1 - YouTube](https://www.youtube.com/watch?v=wlHGfNlE8Os
+- [Building SimCity: How to Put the World in a Machine : r/SimCity](https://www.reddit.com/r/SimCity/comments/1dhrxrm/building_simcity_how_to_put_the_world_in_a_machine/)
+    - Slack post with bunch of things
+# Calorie couting app
