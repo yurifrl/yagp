@@ -1,3 +1,12 @@
+
+## Architecture
+
+### ECS
+
+Entities: a unique integer
+Components: structs of plain old data
+Systems: normal functions
+
 ## Reference
 
 - [daneelsan/minimal-zig-wasm-canvas](https://github.com/daneelsan/minimal-zig-wasm-canvas/tree/master)
