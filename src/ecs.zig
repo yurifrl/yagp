@@ -114,16 +114,7 @@ pub const World = struct {
         try self.entityToArchetype.put(entity.id, archetype_index);
     }
 
-    pub fn addCamera(self: *World, entity: Entity) !void {
-        const camera = Camera{
-            .offset = rl.Vector2{ .x = 0, .y = 0 },
-            .target = rl.Vector2{ .x = 0, .y = 0 },
-            .rotation = 0,
-            .zoom = 1.0,
-            .is_dragging = false,
-            .drag_start = rl.Vector2{ .x = 0, .y = 0 },
-        };
-
+    pub fn addCamera(self: *World, entity: Entity, camera: Camera) !void {
         if (self.entityToArchetype.get(entity.id)) |archetype_index| {
             try self.archetypes.items[archetype_index].addCamera(entity, camera);
         }

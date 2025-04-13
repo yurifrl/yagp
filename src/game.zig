@@ -159,6 +159,15 @@ pub const Game = struct {
     camera_entity: ecs.Entity,
 
     pub fn init(allocator: std.mem.Allocator, chunk_size: i32) !Game {
+        const camera_component = Camera{
+            .offset = rl.Vector2{ .x = 0, .y = 0 },
+            .target = rl.Vector2{ .x = 0, .y = 0 },
+            .rotation = 0,
+            .zoom = 1.0,
+            .is_dragging = false,
+            .drag_start = rl.Vector2{ .x = 0, .y = 0 },
+        };
+
         var chunked_world = ecs.ChunkedWorld.init(allocator, chunk_size);
 
         // Create camera entity
@@ -169,15 +178,12 @@ pub const Game = struct {
             .shape = .Rectangle,
         });
 
-        var game = Game{
+        try chunked_world.world.addCamera(camera_entity, camera_component);
+
+        return Game{
             .chunked_world = chunked_world,
             .camera_entity = camera_entity,
         };
-
-        // Add camera component to the entity
-        try game.chunked_world.world.addCamera(game.camera_entity);
-
-        return game;
     }
 
     pub fn deinit(self: *Game) void {
