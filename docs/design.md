@@ -23,14 +23,14 @@ const Position = struct {
     y: f32,
 };
 
-const Velocity = struct {
-    x: f32,
-    y: f32,
+const Building = struct {
+    type: u8,
+    level: u8,
 };
 
-const Health = struct {
-    current: i32,
-    max: i32,
+const Resource = struct {
+    type: u8,
+    amount: i32,
 };
 ```
 
@@ -39,13 +39,14 @@ const Health = struct {
 - Processes entities in a DAG (Directed Acyclic Graph) order
 
 ```zig
-fn physicsSystem(world: *World) void {
-    // Get all entities with Position and Velocity components
-    var query = world.query(.{Position, Velocity});
+fn resourceSystem(world: *World) void {
+    // Get all entities with Position and Building components
+    var query = world.query(.{Position, Building});
     while (query.next()) |entity| {
-        // Update position based on velocity
-        entity.get(Position).x += entity.get(Velocity).x;
-        entity.get(Position).y += entity.get(Velocity).y;
+        // Process building production based on type and level
+        if (entity.get(Building).type == RESOURCE_PRODUCER) {
+            world.produce(entity, entity.get(Building).level);
+        }
     }
 }
 ```
@@ -66,10 +67,10 @@ fn physicsSystem(world: *World) void {
 
 ```zig
 // Conceptual view of archetype storage
-const PositionVelocityArchetype = struct {
+const PositionBuildingArchetype = struct {
     entities: []Entity,
     positions: []Position,
-    velocities: []Velocity,
+    buildings: []Building,
 };
 ```
 
