@@ -122,49 +122,30 @@ pub const World = struct {
         try self.entityToArchetype.put(entity.id, archetype_index);
     }
 
-    pub fn setPosition(self: *World, entity: Entity, position: Position) !void {
+    pub fn setComponent(self: *World, comptime T: type, entity: Entity, component: T) !void {
         if (self.entityToArchetype.get(entity.id)) |archetype_index| {
             const archetype = &self.archetypes.items[archetype_index];
             if (archetype.getEntityIndex(entity.id)) |entity_index| {
-                archetype.positions.items[entity_index] = position;
+                switch (T) {
+                    Position => archetype.positions.items[entity_index] = component,
+                    Camera => archetype.cameras.items[entity_index] = component,
+                    Renderable => archetype.renderables.items[entity_index] = component,
+                    else => @compileError("Unsupported component type"),
+                }
             }
         }
     }
 
-    pub fn getPosition(self: World, entity: Entity) ?Position {
+    pub fn getComponent(self: World, comptime T: type, entity: Entity) ?T {
         if (self.entityToArchetype.get(entity.id)) |archetype_index| {
             const archetype = self.archetypes.items[archetype_index];
             if (archetype.getEntityIndex(entity.id)) |entity_index| {
-                return archetype.positions.items[entity_index];
-            }
-        }
-        return null;
-    }
-
-    pub fn getRenderable(self: World, entity: Entity) ?Renderable {
-        if (self.entityToArchetype.get(entity.id)) |archetype_index| {
-            const archetype = self.archetypes.items[archetype_index];
-            if (archetype.getEntityIndex(entity.id)) |entity_index| {
-                return archetype.renderables.items[entity_index];
-            }
-        }
-        return null;
-    }
-
-    pub fn setCamera(self: *World, entity: Entity, camera: Camera) !void {
-        if (self.entityToArchetype.get(entity.id)) |archetype_index| {
-            const archetype = &self.archetypes.items[archetype_index];
-            if (archetype.getEntityIndex(entity.id)) |entity_index| {
-                archetype.cameras.items[entity_index] = camera;
-            }
-        }
-    }
-
-    pub fn getCamera(self: World, entity: Entity) ?Camera {
-        if (self.entityToArchetype.get(entity.id)) |archetype_index| {
-            const archetype = self.archetypes.items[archetype_index];
-            if (archetype.getEntityIndex(entity.id)) |entity_index| {
-                return archetype.cameras.items[entity_index];
+                return switch (T) {
+                    Position => archetype.positions.items[entity_index],
+                    Renderable => archetype.renderables.items[entity_index],
+                    Camera => archetype.cameras.items[entity_index],
+                    else => @compileError("Unsupported component type"),
+                };
             }
         }
         return null;

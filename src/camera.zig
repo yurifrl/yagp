@@ -3,7 +3,7 @@ const rl = @import("raylib");
 const ecs = @import("ecs.zig");
 
 pub fn updateCameraSystem(world: *ecs.World, camera_entity: ecs.Entity) !void {
-    const camera_opt = world.getCamera(camera_entity);
+    const camera_opt = world.getComponent(ecs.Camera, camera_entity);
     if (camera_opt == null) return;
 
     var camera = camera_opt.?;
@@ -60,5 +60,5 @@ pub fn updateCameraSystem(world: *ecs.World, camera_entity: ecs.Entity) !void {
         camera.target.y += mouse_world_pos.y - new_mouse_world_pos.y;
     }
 
-    try world.setCamera(camera_entity, camera);
+    try world.setComponent(ecs.Camera, camera_entity, camera);
 }

@@ -72,7 +72,7 @@ pub const ChunkedWorld = struct {
 
     pub fn setEntityPosition(self: *ChunkedWorld, entity: ecs.Entity, pos: ecs.Position) !void {
         // Remove from old chunk if exists
-        if (self.world.getPosition(entity)) |old_pos| {
+        if (self.world.getComponent(ecs.Position, entity)) |old_pos| {
             const old_coord = self.getChunkCoord(old_pos);
             if (self.chunks.getPtr(old_coord)) |chunk| {
                 // Find and remove entity from old chunk
@@ -86,7 +86,7 @@ pub const ChunkedWorld = struct {
         }
 
         // Update position in world
-        try self.world.setPosition(entity, pos);
+        try self.world.setComponent(ecs.Position, entity, pos);
 
         // Add to new chunk
         try self.assignToChunk(entity, pos);
@@ -157,8 +157,8 @@ pub fn renderChunkedWorld(world: ChunkedWorld, camera: ecs.Camera) void {
 
         // Draw entities in this chunk
         for (chunk.entities.items) |entity| {
-            if (world.world.getPosition(entity)) |position| {
-                if (world.world.getRenderable(entity)) |renderable| {
+            if (world.world.getComponent(ecs.Position, entity)) |position| {
+                if (world.world.getComponent(ecs.Renderable, entity)) |renderable| {
                     switch (renderable.shape) {
                         .Rectangle => {
                             rl.drawRectangle(@intFromFloat(position.x), @intFromFloat(position.y), @intFromFloat(renderable.width), @intFromFloat(renderable.height), renderable.color);

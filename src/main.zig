@@ -88,7 +88,7 @@ pub fn main() anyerror!void {
         try camera_system.updateCameraSystem(&chunked_world.world, camera_entity);
 
         // Get updated camera for rendering
-        const camera = chunked_world.world.getCamera(camera_entity) orelse ecs.Camera{
+        const camera = chunked_world.world.getComponent(ecs.Camera, camera_entity) orelse ecs.Camera{
             .offset = rl.Vector2{ .x = 0, .y = 0 },
             .target = rl.Vector2{ .x = 0, .y = 0 },
             .rotation = 0,
