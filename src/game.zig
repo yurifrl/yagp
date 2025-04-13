@@ -1,6 +1,7 @@
 const std = @import("std");
 const rl = @import("raylib");
 const ecs = @import("ecs.zig");
+const debugger = @import("debugger.zig");
 
 // Re-export core types for backwards compatibility
 pub const Entity = ecs.Entity;
@@ -19,6 +20,7 @@ pub fn updateCameraSystem(chunked_world: *ecs.ChunkedWorld, camera_entity: ecs.E
     if (rl.isMouseButtonPressed(.left)) {
         camera.is_dragging = true;
         camera.drag_start = mouse_pos;
+        debugger.logFmt("Camera drag started at ({d:.1}, {d:.1})", .{ mouse_pos.x, mouse_pos.y });
     }
 
     if (rl.isMouseButtonDown(.left) and camera.is_dragging) {
@@ -35,6 +37,7 @@ pub fn updateCameraSystem(chunked_world: *ecs.ChunkedWorld, camera_entity: ecs.E
 
     if (rl.isMouseButtonReleased(.left)) {
         camera.is_dragging = false;
+        debugger.logFmt("Camera position: ({d:.1}, {d:.1})", .{ camera.target.x, camera.target.y });
     }
 
     // Handle zoom with mouse wheel
@@ -104,18 +107,29 @@ pub fn renderChunkedWorld(world: ecs.ChunkedWorld) void {
     // Draw grid lines to visualize chunks
     const chunk_size_f: f32 = @floatFromInt(world.chunk_size);
 
+    // Calculate visible area in world coordinates based on camera view
+    const screen_width = rl.getScreenWidth();
+    const screen_height = rl.getScreenHeight();
+
+    const top_left = rl.getScreenToWorld2D(rl.Vector2{ .x = 0, .y = 0 }, rl_camera);
+    const bottom_right = rl.getScreenToWorld2D(rl.Vector2{ .x = @floatFromInt(screen_width), .y = @floatFromInt(screen_height) }, rl_camera);
+
+    // Calculate chunk grid boundaries
+    const start_x = @divFloor(@as(i32, @intFromFloat(top_left.x)), world.chunk_size) * world.chunk_size;
+    const end_x = @divFloor(@as(i32, @intFromFloat(bottom_right.x)), world.chunk_size) * world.chunk_size + world.chunk_size * 2;
+    const start_y = @divFloor(@as(i32, @intFromFloat(top_left.y)), world.chunk_size) * world.chunk_size;
+    const end_y = @divFloor(@as(i32, @intFromFloat(bottom_right.y)), world.chunk_size) * world.chunk_size + world.chunk_size * 2;
+
     // Draw vertical grid lines
-    var x: f32 = 0;
-    const screen_width_f: f32 = @floatFromInt(rl.getScreenWidth());
-    while (x < screen_width_f) : (x += chunk_size_f) {
-        rl.drawLine(@intFromFloat(x), 0, @intFromFloat(x), rl.getScreenHeight(), rl.Color{ .r = 50, .g = 50, .b = 50, .a = 255 });
+    var x: f32 = @floatFromInt(start_x);
+    while (x < @as(f32, @floatFromInt(end_x))) : (x += chunk_size_f) {
+        rl.drawLine(@intFromFloat(x), @intFromFloat(@as(f32, @floatFromInt(start_y))), @intFromFloat(x), @intFromFloat(@as(f32, @floatFromInt(end_y))), rl.Color{ .r = 50, .g = 50, .b = 50, .a = 255 });
     }
 
     // Draw horizontal grid lines
-    var y: f32 = 0;
-    const screen_height_f: f32 = @floatFromInt(rl.getScreenHeight());
-    while (y < screen_height_f) : (y += chunk_size_f) {
-        rl.drawLine(0, @intFromFloat(y), rl.getScreenWidth(), @intFromFloat(y), rl.Color{ .r = 50, .g = 50, .b = 50, .a = 255 });
+    var y: f32 = @floatFromInt(start_y);
+    while (y < @as(f32, @floatFromInt(end_y))) : (y += chunk_size_f) {
+        rl.drawLine(@intFromFloat(@as(f32, @floatFromInt(start_x))), @intFromFloat(y), @intFromFloat(@as(f32, @floatFromInt(end_x))), @intFromFloat(y), rl.Color{ .r = 50, .g = 50, .b = 50, .a = 255 });
     }
 
     // Draw each chunk with its entities
@@ -123,9 +137,22 @@ pub fn renderChunkedWorld(world: ecs.ChunkedWorld) void {
     while (chunk_iter.next()) |entry| {
         const chunk = entry.value_ptr.*;
 
+        // Calculate chunk position in world coordinates
+        const chunk_world_x = @as(f32, @floatFromInt(chunk.coord.x * world.chunk_size));
+        const chunk_world_y = @as(f32, @floatFromInt(chunk.coord.y * world.chunk_size));
+
+        // Skip chunks outside of visible area
+        if (chunk_world_x + chunk_size_f < top_left.x or
+            chunk_world_x > bottom_right.x or
+            chunk_world_y + chunk_size_f < top_left.y or
+            chunk_world_y > bottom_right.y)
+        {
+            continue;
+        }
+
         // Render chunk coordinate in the center of the chunk
-        const chunk_center_x: f32 = (@as(f32, @floatFromInt(chunk.coord.x)) * chunk_size_f) + (chunk_size_f / 2);
-        const chunk_center_y: f32 = (@as(f32, @floatFromInt(chunk.coord.y)) * chunk_size_f) + (chunk_size_f / 2);
+        const chunk_center_x: f32 = chunk_world_x + (chunk_size_f / 2);
+        const chunk_center_y: f32 = chunk_world_y + (chunk_size_f / 2);
 
         const coord_text = std.fmt.allocPrintZ(world.allocator, "({}, {})", .{ chunk.coord.x, chunk.coord.y }) catch continue;
         defer world.allocator.free(coord_text);
@@ -177,6 +204,11 @@ pub const Game = struct {
 
     pub fn update(self: *Game) !void {
         try updateCameraSystem(&self.chunked_world, self.camera_entity);
+
+        // Log visible chunks when L key is pressed
+        if (rl.isKeyPressed(.l)) {
+            debugger.logVisibleChunks(self.chunked_world, self.camera_entity);
+        }
     }
 
     pub fn render(self: Game) void {

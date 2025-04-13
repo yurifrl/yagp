@@ -1,5 +1,6 @@
 const std = @import("std");
 const rl = @import("raylib");
+const debugger = @import("debugger.zig");
 
 // Entity Types
 pub const Entity = struct {
@@ -266,6 +267,12 @@ pub const ChunkedWorld = struct {
                     }
                 }
             }
+
+            // Log position change
+            debugger.logFmt("Entity {d} moved from ({d:.1},{d:.1}) to ({d:.1},{d:.1})", .{ entity.id, old_pos.x, old_pos.y, pos.x, pos.y });
+        } else {
+            // New position being set
+            debugger.logFmt("Entity {d} positioned at ({d:.1},{d:.1})", .{ entity.id, pos.x, pos.y });
         }
 
         // Update position in world

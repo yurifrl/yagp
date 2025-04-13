@@ -3,6 +3,7 @@ const rl = @import("raylib");
 const builtin = @import("builtin");
 
 const game = @import("game.zig");
+const debugger = @import("debugger.zig");
 
 const is_wasm = builtin.target.os.tag == .emscripten;
 
@@ -22,6 +23,10 @@ pub fn main() anyerror!void {
     // Initialize our game with page allocator (WebAssembly compatible)
     const allocator = std.heap.page_allocator;
 
+    // Initialize debugger
+    debugger.init(allocator);
+    defer debugger.deinit();
+
     var g = try game.Game.init(allocator, 100); // 100x100 pixel chunks
     defer g.deinit();
 
@@ -32,6 +37,9 @@ pub fn main() anyerror!void {
         .height = 50,
         .shape = .Rectangle,
     });
+
+    // Add a debug message
+    debugger.log("Game initialized");
 
     // Main game loop
     while (!rl.windowShouldClose()) {
@@ -45,6 +53,9 @@ pub fn main() anyerror!void {
 
         // Render the game world
         g.render();
+
+        // Render debug messages
+        debugger.render();
 
         // Display some debug info
         rl.drawFPS(10, 10);
