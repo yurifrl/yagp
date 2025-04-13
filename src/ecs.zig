@@ -188,26 +188,9 @@ pub const ChunkedWorld = struct {
             .allocator = allocator,
             .camera_entity = Entity{ .id = 0 },
         };
-        const camera_component = Camera{
-            .offset = rl.Vector2{ .x = 0, .y = 0 },
-            .target = rl.Vector2{ .x = 0, .y = 0 },
-            .rotation = 0,
-            .zoom = 1.0,
-            .is_dragging = false,
-            .drag_start = rl.Vector2{ .x = 0, .y = 0 },
-        };
-        const camera_entity = try chunked_world.createEntity(
-            Position{ .x = 0, .y = 0 },
-            Renderable{
-                .color = rl.Color{ .r = 0, .g = 0, .b = 0, .a = 0 },
-                .width = 0,
-                .height = 0,
-                .shape = .Rectangle,
-            },
-        );
 
-        chunked_world.camera_entity = camera_entity;
-        try chunked_world.world.addCamera(camera_entity, camera_component);
+        // Create default camera
+        chunked_world.camera_entity = try chunked_world.createDefaultCamera();
 
         return chunked_world;
     }
@@ -221,6 +204,32 @@ pub const ChunkedWorld = struct {
         }
 
         self.chunks.deinit();
+    }
+
+    pub fn createDefaultCamera(self: *ChunkedWorld) !Entity {
+        const position = Position{ .x = 0, .y = 0 };
+        const offset = rl.Vector2{ .x = 0, .y = 0 };
+        const zoom = 1.0;
+        const camera_entity = try self.createEntity(
+            position,
+            Renderable{
+                .color = rl.Color{ .r = 0, .g = 0, .b = 0, .a = 0 },
+                .width = 0,
+                .height = 0,
+                .shape = .Rectangle,
+            },
+        );
+        const camera_component = Camera{
+            .offset = offset,
+            .target = rl.Vector2{ .x = position.x, .y = position.y },
+            .rotation = 0,
+            .zoom = zoom,
+            .is_dragging = false,
+            .drag_start = rl.Vector2{ .x = 0, .y = 0 },
+        };
+
+        try self.world.addCamera(camera_entity, camera_component);
+        return camera_entity;
     }
 
     pub fn getChunkCoord(self: ChunkedWorld, pos: Position) ChunkCoord {
