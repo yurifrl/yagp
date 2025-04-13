@@ -1,277 +1,17 @@
 const std = @import("std");
 const rl = @import("raylib");
+const ecs = @import("ecs.zig");
 
-// Entity and Component Types
-pub const Entity = struct {
-    id: u64,
-};
+// Re-export core types for backwards compatibility
+pub const Entity = ecs.Entity;
+pub const Position = ecs.Position;
+pub const Renderable = ecs.Renderable;
+pub const Camera = ecs.Camera;
 
-pub const Position = struct {
-    x: f32,
-    y: f32,
-};
-
-pub const Renderable = struct {
-    color: rl.Color,
-    width: f32,
-    height: f32,
-    shape: enum { Rectangle, Circle, Texture },
-    texture_id: ?u32 = null,
-};
-
-pub const Camera = struct {
-    offset: rl.Vector2,
-    target: rl.Vector2,
-    rotation: f32,
-    zoom: f32,
-    is_dragging: bool,
-    drag_start: rl.Vector2,
-};
-
-// ECS System
-const ArchetypeId = u64;
-
-const Archetype = struct {
-    id: ArchetypeId,
-    entities: std.ArrayList(Entity),
-    positions: std.ArrayList(Position),
-    renderables: std.ArrayList(Renderable),
-    cameras: std.ArrayList(Camera),
-
-    pub fn init(allocator: std.mem.Allocator, id: ArchetypeId) Archetype {
-        return Archetype{
-            .id = id,
-            .entities = std.ArrayList(Entity).init(allocator),
-            .positions = std.ArrayList(Position).init(allocator),
-            .renderables = std.ArrayList(Renderable).init(allocator),
-            .cameras = std.ArrayList(Camera).init(allocator),
-        };
-    }
-
-    pub fn deinit(self: *Archetype) void {
-        self.entities.deinit();
-        self.positions.deinit();
-        self.renderables.deinit();
-        self.cameras.deinit();
-    }
-
-    pub fn addEntity(self: *Archetype, entity: Entity, position: Position, renderable: Renderable) !void {
-        try self.entities.append(entity);
-        try self.positions.append(position);
-        try self.renderables.append(renderable);
-
-        const empty_camera = Camera{
-            .offset = rl.Vector2{ .x = 0, .y = 0 },
-            .target = rl.Vector2{ .x = 0, .y = 0 },
-            .rotation = 0,
-            .zoom = 1.0,
-            .is_dragging = false,
-            .drag_start = rl.Vector2{ .x = 0, .y = 0 },
-        };
-        try self.cameras.append(empty_camera);
-    }
-
-    pub fn addCamera(self: *Archetype, entity: Entity) !void {
-        if (self.getEntityIndex(entity.id)) |entity_index| {
-            self.cameras.items[entity_index] = Camera{
-                .offset = rl.Vector2{ .x = 0, .y = 0 },
-                .target = rl.Vector2{ .x = 0, .y = 0 },
-                .rotation = 0,
-                .zoom = 1.0,
-                .is_dragging = false,
-                .drag_start = rl.Vector2{ .x = 0, .y = 0 },
-            };
-        }
-    }
-
-    pub fn getEntityIndex(self: Archetype, entity_id: u64) ?usize {
-        for (self.entities.items, 0..) |e, i| {
-            if (e.id == entity_id) return i;
-        }
-        return null;
-    }
-};
-
-pub const World = struct {
-    archetypes: std.ArrayList(Archetype),
-    entityToArchetype: std.AutoHashMap(u64, usize),
-    allocator: std.mem.Allocator,
-
-    pub fn init(allocator: std.mem.Allocator) World {
-        return World{
-            .archetypes = std.ArrayList(Archetype).init(allocator),
-            .entityToArchetype = std.AutoHashMap(u64, usize).init(allocator),
-            .allocator = allocator,
-        };
-    }
-
-    pub fn deinit(self: *World) void {
-        for (self.archetypes.items) |*archetype| {
-            archetype.deinit();
-        }
-        self.archetypes.deinit();
-        self.entityToArchetype.deinit();
-    }
-
-    pub fn createEntity(self: *World, entity: Entity, position: Position, renderable: Renderable) !void {
-        if (self.archetypes.items.len == 0) {
-            const archetype = Archetype.init(self.allocator, 1);
-            try self.archetypes.append(archetype);
-        }
-
-        const archetype_index = 0;
-        try self.archetypes.items[archetype_index].addEntity(entity, position, renderable);
-        try self.entityToArchetype.put(entity.id, archetype_index);
-    }
-
-    pub fn setComponent(self: *World, comptime T: type, entity: Entity, component: T) !void {
-        if (self.entityToArchetype.get(entity.id)) |archetype_index| {
-            const archetype = &self.archetypes.items[archetype_index];
-            if (archetype.getEntityIndex(entity.id)) |entity_index| {
-                switch (T) {
-                    Position => archetype.positions.items[entity_index] = component,
-                    Camera => archetype.cameras.items[entity_index] = component,
-                    Renderable => archetype.renderables.items[entity_index] = component,
-                    else => @compileError("Unsupported component type"),
-                }
-            }
-        }
-    }
-
-    pub fn getComponent(self: World, comptime T: type, entity: Entity) ?T {
-        if (self.entityToArchetype.get(entity.id)) |archetype_index| {
-            const archetype = self.archetypes.items[archetype_index];
-            if (archetype.getEntityIndex(entity.id)) |entity_index| {
-                return switch (T) {
-                    Position => archetype.positions.items[entity_index],
-                    Renderable => archetype.renderables.items[entity_index],
-                    Camera => archetype.cameras.items[entity_index],
-                    else => @compileError("Unsupported component type"),
-                };
-            }
-        }
-        return null;
-    }
-};
-
-// Chunking System
-pub const ChunkCoord = struct {
-    x: i32,
-    y: i32,
-};
-
-pub const Chunk = struct {
-    coord: ChunkCoord,
-    entities: std.ArrayList(Entity),
-
-    pub fn init(allocator: std.mem.Allocator, coord: ChunkCoord) Chunk {
-        return Chunk{
-            .coord = coord,
-            .entities = std.ArrayList(Entity).init(allocator),
-        };
-    }
-
-    pub fn deinit(self: *Chunk) void {
-        self.entities.deinit();
-    }
-};
-
-pub const ChunkedWorld = struct {
-    world: World,
-    chunks: std.AutoHashMap(ChunkCoord, Chunk),
-    chunk_size: i32,
-    allocator: std.mem.Allocator,
-
-    pub fn init(allocator: std.mem.Allocator, chunk_size: i32) ChunkedWorld {
-        return ChunkedWorld{
-            .world = World.init(allocator),
-            .chunks = std.AutoHashMap(ChunkCoord, Chunk).init(allocator),
-            .chunk_size = chunk_size,
-            .allocator = allocator,
-        };
-    }
-
-    pub fn deinit(self: *ChunkedWorld) void {
-        self.world.deinit();
-
-        var iter = self.chunks.valueIterator();
-        while (iter.next()) |chunk| {
-            chunk.deinit();
-        }
-
-        self.chunks.deinit();
-    }
-
-    pub fn getChunkCoord(self: ChunkedWorld, pos: Position) ChunkCoord {
-        return ChunkCoord{
-            .x = @divFloor(@as(i32, @intFromFloat(pos.x)), self.chunk_size),
-            .y = @divFloor(@as(i32, @intFromFloat(pos.y)), self.chunk_size),
-        };
-    }
-
-    pub fn getOrCreateChunk(self: *ChunkedWorld, coord: ChunkCoord) !*Chunk {
-        const result = try self.chunks.getOrPut(coord);
-        if (!result.found_existing) {
-            result.value_ptr.* = Chunk.init(self.allocator, coord);
-        }
-        return result.value_ptr;
-    }
-
-    pub fn assignToChunk(self: *ChunkedWorld, entity: Entity, pos: Position) !void {
-        const coord = self.getChunkCoord(pos);
-        const chunk = try self.getOrCreateChunk(coord);
-        try chunk.entities.append(entity);
-    }
-
-    pub fn setEntityPosition(self: *ChunkedWorld, entity: Entity, pos: Position) !void {
-        // Remove from old chunk if exists
-        if (self.world.getComponent(Position, entity)) |old_pos| {
-            const old_coord = self.getChunkCoord(old_pos);
-            if (self.chunks.getPtr(old_coord)) |chunk| {
-                // Find and remove entity from old chunk
-                for (chunk.entities.items, 0..) |e, i| {
-                    if (e.id == entity.id) {
-                        _ = chunk.entities.orderedRemove(i);
-                        break;
-                    }
-                }
-            }
-        }
-
-        // Update position in world
-        try self.world.setComponent(Position, entity, pos);
-
-        // Add to new chunk
-        try self.assignToChunk(entity, pos);
-    }
-
-    pub fn assignEntitiesToChunks(self: *ChunkedWorld, entities: []const Entity, positions: []const Position) !void {
-        if (entities.len != positions.len) return error.MismatchedArrayLengths;
-
-        for (entities, positions) |entity, position| {
-            try self.setEntityPosition(entity, position);
-        }
-    }
-
-    pub fn createEntity(self: *ChunkedWorld, id: u64, position: Position, renderable: Renderable) !Entity {
-        const entity = Entity{ .id = id };
-
-        // Add entity to the archetype-based world
-        try self.world.createEntity(entity, position, renderable);
-
-        // Assign to chunk based on position
-        try self.assignToChunk(entity, position);
-
-        return entity;
-    }
-};
-
-// Camera System
-pub fn updateCameraSystem(chunked_world: *ChunkedWorld, camera_entity: Entity) !void {
-    const camera_opt = chunked_world.world.getComponent(Camera, camera_entity);
-    if (camera_opt == null) return;
-
-    var camera = camera_opt.?;
+// Update camera system with raylib input
+pub fn updateCameraSystem(chunked_world: *ecs.ChunkedWorld, camera_entity: ecs.Entity) !void {
+    const camera_component = chunked_world.world.getComponent(ecs.Camera, camera_entity) orelse return;
+    var camera = camera_component;
 
     // Handle camera panning
     const mouse_pos = rl.getMousePosition();
@@ -325,19 +65,18 @@ pub fn updateCameraSystem(chunked_world: *ChunkedWorld, camera_entity: Entity) !
         camera.target.y += mouse_world_pos.y - new_mouse_world_pos.y;
     }
 
-    try chunked_world.world.setComponent(Camera, camera_entity, camera);
+    try chunked_world.world.setComponent(ecs.Camera, camera_entity, camera);
 }
 
-// Rendering
-pub fn renderChunkedWorld(world: ChunkedWorld) void {
+// Rendering function
+pub fn renderChunkedWorld(world: ecs.ChunkedWorld) void {
     // Get main camera entity (this is a placeholder, would need to be actually tracked)
-    var camera_entity_opt: ?Entity = null;
+    var camera_entity_opt: ?ecs.Entity = null;
     if (world.world.archetypes.items.len > 0) {
         const arch = world.world.archetypes.items[0];
         for (arch.entities.items, 0..) |entity, i| {
-            // Check if entity has a real camera (not the empty default one)
-            const camera = arch.cameras.items[i];
-            if (camera.zoom != 0) {
+            // Check if entity has a camera
+            if (arch.has_cameras.items[i]) {
                 camera_entity_opt = entity;
                 break;
             }
@@ -347,7 +86,9 @@ pub fn renderChunkedWorld(world: ChunkedWorld) void {
     if (camera_entity_opt == null) return;
 
     const camera_entity = camera_entity_opt.?;
-    const camera = world.world.getComponent(Camera, camera_entity) orelse return;
+    const camera_opt = world.world.getComponent(ecs.Camera, camera_entity);
+    if (camera_opt == null) return;
+    const camera = camera_opt.?;
 
     // Begin 2D camera mode using the camera component
     const rl_camera = rl.Camera2D{
@@ -356,6 +97,7 @@ pub fn renderChunkedWorld(world: ChunkedWorld) void {
         .rotation = camera.rotation,
         .zoom = camera.zoom,
     };
+
     rl.beginMode2D(rl_camera);
     defer rl.endMode2D();
 
@@ -392,8 +134,8 @@ pub fn renderChunkedWorld(world: ChunkedWorld) void {
 
         // Draw entities in this chunk
         for (chunk.entities.items) |entity| {
-            if (world.world.getComponent(Position, entity)) |position| {
-                if (world.world.getComponent(Renderable, entity)) |renderable| {
+            if (world.world.getComponent(ecs.Position, entity)) |position| {
+                if (world.world.getComponent(ecs.Renderable, entity)) |renderable| {
                     switch (renderable.shape) {
                         .Rectangle => {
                             rl.drawRectangle(@intFromFloat(position.x), @intFromFloat(position.y), @intFromFloat(renderable.width), @intFromFloat(renderable.height), renderable.color);
@@ -413,26 +155,27 @@ pub fn renderChunkedWorld(world: ChunkedWorld) void {
 
 // Game functions
 pub const Game = struct {
-    chunked_world: ChunkedWorld,
-    camera_entity: Entity,
+    chunked_world: ecs.ChunkedWorld,
+    camera_entity: ecs.Entity,
     entity_id_counter: u64,
 
     pub fn init(allocator: std.mem.Allocator, chunk_size: i32) !Game {
         var game = Game{
-            .chunked_world = ChunkedWorld.init(allocator, chunk_size),
-            .camera_entity = Entity{ .id = 1 },
+            .chunked_world = ecs.ChunkedWorld.init(allocator, chunk_size),
+            .camera_entity = ecs.Entity{ .id = 1 },
             .entity_id_counter = 1,
         };
 
         // Create camera entity
-        try game.chunked_world.world.createEntity(game.camera_entity, Position{ .x = 0, .y = 0 }, Renderable{
+        _ = try game.chunked_world.createEntity(game.camera_entity.id, ecs.Position{ .x = 0, .y = 0 }, ecs.Renderable{
             .color = rl.Color{ .r = 0, .g = 0, .b = 0, .a = 0 },
             .width = 0,
             .height = 0,
             .shape = .Rectangle,
         });
 
-        try game.chunked_world.world.archetypes.items[0].addCamera(game.camera_entity);
+        // Add camera component to the entity
+        try game.chunked_world.world.addCamera(game.camera_entity);
 
         // Increment ID counter
         game.entity_id_counter += 1;
@@ -444,7 +187,7 @@ pub const Game = struct {
         self.chunked_world.deinit();
     }
 
-    pub fn createEntity(self: *Game, position: Position, renderable: Renderable) !Entity {
+    pub fn createEntity(self: *Game, position: ecs.Position, renderable: ecs.Renderable) !ecs.Entity {
         const id = self.entity_id_counter;
         self.entity_id_counter += 1;
         return try self.chunked_world.createEntity(id, position, renderable);

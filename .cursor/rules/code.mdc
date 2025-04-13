@@ -13,3 +13,4 @@ alwaysApply: true
 - Dont be proactive, do what I ask, and noting more
 - Criativity to -1, be objective
 - before each suggestion, explain you reasoning
+- Follow a misc of separation of concerns and locality and behaviour patern 
