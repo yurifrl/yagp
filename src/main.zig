@@ -233,10 +233,8 @@ pub fn main() anyerror!void {
 
     rl.setTargetFPS(60);
 
-    // Initialize our chunked world
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
-    const allocator = gpa.allocator();
+    // Initialize our chunked world with page allocator (WebAssembly compatible)
+    const allocator = std.heap.page_allocator;
 
     var chunked_world = ChunkedWorld.init(allocator, 100); // 100x100 pixel chunks
     defer chunked_world.deinit();
