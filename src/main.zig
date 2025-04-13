@@ -48,50 +48,129 @@ const ArchetypeId = u64;
 const Archetype = struct {
     id: ArchetypeId,
     entities: std.ArrayList(Entity),
+    positions: std.ArrayList(Position),
+    renderables: std.ArrayList(Renderable),
+
+    pub fn init(allocator: std.mem.Allocator, id: ArchetypeId) Archetype {
+        return Archetype{
+            .id = id,
+            .entities = std.ArrayList(Entity).init(allocator),
+            .positions = std.ArrayList(Position).init(allocator),
+            .renderables = std.ArrayList(Renderable).init(allocator),
+        };
+    }
+
+    pub fn deinit(self: *Archetype) void {
+        self.entities.deinit();
+        self.positions.deinit();
+        self.renderables.deinit();
+    }
+
+    pub fn addEntity(self: *Archetype, entity: Entity, position: Position, renderable: Renderable) !void {
+        try self.entities.append(entity);
+        try self.positions.append(position);
+        try self.renderables.append(renderable);
+    }
+
+    pub fn getEntityIndex(self: Archetype, entity_id: u64) ?usize {
+        for (self.entities.items, 0..) |e, i| {
+            if (e.id == entity_id) return i;
+        }
+        return null;
+    }
+
+    pub fn removeEntity(self: *Archetype, entity_id: u64) bool {
+        if (self.getEntityIndex(entity_id)) |index| {
+            _ = self.entities.orderedRemove(index);
+            _ = self.positions.orderedRemove(index);
+            _ = self.renderables.orderedRemove(index);
+            return true;
+        }
+        return false;
+    }
 };
 
 const World = struct {
     archetypes: std.ArrayList(Archetype),
-    componentToArchetypes: std.StringHashMap(std.ArrayList(ArchetypeId)),
-    positionComponents: std.AutoHashMap(u64, Position),
-    renderableComponents: std.AutoHashMap(u64, Renderable),
+    entityToArchetype: std.AutoHashMap(u64, usize), // Maps entity ID to archetype index
     allocator: std.mem.Allocator,
 
     pub fn init(allocator: std.mem.Allocator) World {
         return World{
             .archetypes = std.ArrayList(Archetype).init(allocator),
-            .componentToArchetypes = std.StringHashMap(std.ArrayList(ArchetypeId)).init(allocator),
-            .positionComponents = std.AutoHashMap(u64, Position).init(allocator),
-            .renderableComponents = std.AutoHashMap(u64, Renderable).init(allocator),
+            .entityToArchetype = std.AutoHashMap(u64, usize).init(allocator),
             .allocator = allocator,
         };
     }
 
     pub fn deinit(self: *World) void {
-        self.archetypes.deinit();
-        var iter = self.componentToArchetypes.valueIterator();
-        while (iter.next()) |list| {
-            list.deinit();
+        for (self.archetypes.items) |*archetype| {
+            archetype.deinit();
         }
-        self.componentToArchetypes.deinit();
-        self.positionComponents.deinit();
-        self.renderableComponents.deinit();
+        self.archetypes.deinit();
+        self.entityToArchetype.deinit();
+    }
+
+    pub fn createEntity(self: *World, entity: Entity, position: Position, renderable: Renderable) !void {
+        // For now, we only have one archetype with both Position and Renderable
+        if (self.archetypes.items.len == 0) {
+            const archetype = Archetype.init(self.allocator, 1);
+            try self.archetypes.append(archetype);
+        }
+
+        const archetype_index = 0;
+        try self.archetypes.items[archetype_index].addEntity(entity, position, renderable);
+        try self.entityToArchetype.put(entity.id, archetype_index);
     }
 
     pub fn setPosition(self: *World, entity: Entity, position: Position) !void {
-        try self.positionComponents.put(entity.id, position);
+        if (self.entityToArchetype.get(entity.id)) |archetype_index| {
+            const archetype = &self.archetypes.items[archetype_index];
+            if (archetype.getEntityIndex(entity.id)) |entity_index| {
+                archetype.positions.items[entity_index] = position;
+            }
+        }
     }
 
     pub fn getPosition(self: World, entity: Entity) ?Position {
-        return self.positionComponents.get(entity.id);
+        if (self.entityToArchetype.get(entity.id)) |archetype_index| {
+            const archetype = self.archetypes.items[archetype_index];
+            if (archetype.getEntityIndex(entity.id)) |entity_index| {
+                return archetype.positions.items[entity_index];
+            }
+        }
+        return null;
     }
 
     pub fn setRenderable(self: *World, entity: Entity, renderable: Renderable) !void {
-        try self.renderableComponents.put(entity.id, renderable);
+        if (self.entityToArchetype.get(entity.id)) |archetype_index| {
+            const archetype = &self.archetypes.items[archetype_index];
+            if (archetype.getEntityIndex(entity.id)) |entity_index| {
+                archetype.renderables.items[entity_index] = renderable;
+            }
+        }
     }
 
     pub fn getRenderable(self: World, entity: Entity) ?Renderable {
-        return self.renderableComponents.get(entity.id);
+        if (self.entityToArchetype.get(entity.id)) |archetype_index| {
+            const archetype = self.archetypes.items[archetype_index];
+            if (archetype.getEntityIndex(entity.id)) |entity_index| {
+                return archetype.renderables.items[entity_index];
+            }
+        }
+        return null;
+    }
+
+    pub fn removeEntity(self: *World, entity: Entity) bool {
+        if (self.entityToArchetype.get(entity.id)) |archetype_index| {
+            const archetype = &self.archetypes.items[archetype_index];
+            const removed = archetype.removeEntity(entity.id);
+            if (removed) {
+                _ = self.entityToArchetype.remove(entity.id);
+                return true;
+            }
+        }
+        return false;
     }
 };
 
@@ -140,7 +219,6 @@ const ChunkedWorld = struct {
         const coord = self.getChunkCoord(pos);
         const chunk = try self.getOrCreateChunk(coord);
         try chunk.entities.append(entity);
-        try self.world.setPosition(entity, pos);
     }
 
     pub fn setEntityPosition(self: *ChunkedWorld, entity: Entity, pos: Position) !void {
@@ -158,6 +236,9 @@ const ChunkedWorld = struct {
             }
         }
 
+        // Update position in world
+        try self.world.setPosition(entity, pos);
+
         // Add to new chunk
         try self.assignToChunk(entity, pos);
     }
@@ -172,8 +253,13 @@ const ChunkedWorld = struct {
 
     pub fn createEntity(self: *ChunkedWorld, id: u64, position: Position, renderable: Renderable) !Entity {
         const entity = Entity{ .id = id };
-        try self.setEntityPosition(entity, position);
-        try self.world.setRenderable(entity, renderable);
+
+        // Add entity to the archetype-based world
+        try self.world.createEntity(entity, position, renderable);
+
+        // Assign to chunk based on position
+        try self.assignToChunk(entity, position);
+
         return entity;
     }
 };
