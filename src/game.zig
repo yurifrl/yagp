@@ -157,28 +157,25 @@ pub fn renderChunkedWorld(world: ecs.ChunkedWorld) void {
 pub const Game = struct {
     chunked_world: ecs.ChunkedWorld,
     camera_entity: ecs.Entity,
-    entity_id_counter: u64,
 
     pub fn init(allocator: std.mem.Allocator, chunk_size: i32) !Game {
-        var game = Game{
-            .chunked_world = ecs.ChunkedWorld.init(allocator, chunk_size),
-            .camera_entity = ecs.Entity{ .id = 1 },
-            .entity_id_counter = 1,
-        };
+        var chunked_world = ecs.ChunkedWorld.init(allocator, chunk_size);
 
         // Create camera entity
-        _ = try game.chunked_world.createEntity(game.camera_entity.id, ecs.Position{ .x = 0, .y = 0 }, ecs.Renderable{
+        const camera_entity = try chunked_world.createEntity(ecs.Position{ .x = 0, .y = 0 }, ecs.Renderable{
             .color = rl.Color{ .r = 0, .g = 0, .b = 0, .a = 0 },
             .width = 0,
             .height = 0,
             .shape = .Rectangle,
         });
 
+        var game = Game{
+            .chunked_world = chunked_world,
+            .camera_entity = camera_entity,
+        };
+
         // Add camera component to the entity
         try game.chunked_world.world.addCamera(game.camera_entity);
-
-        // Increment ID counter
-        game.entity_id_counter += 1;
 
         return game;
     }
@@ -188,9 +185,7 @@ pub const Game = struct {
     }
 
     pub fn createEntity(self: *Game, position: ecs.Position, renderable: ecs.Renderable) !ecs.Entity {
-        const id = self.entity_id_counter;
-        self.entity_id_counter += 1;
-        return try self.chunked_world.createEntity(id, position, renderable);
+        return try self.chunked_world.createEntity(position, renderable);
     }
 
     pub fn update(self: *Game) !void {

@@ -259,8 +259,8 @@ pub const ChunkedWorld = struct {
         }
     }
 
-    pub fn createEntity(self: *ChunkedWorld, id: u64, position: Position, renderable: Renderable) !Entity {
-        const entity = Entity{ .id = id };
+    pub fn createEntity(self: *ChunkedWorld, position: Position, renderable: Renderable) !Entity {
+        const entity = Entity{ .id = std.crypto.random.int(u64) };
 
         // Add entity to the archetype-based world
         try self.world.createEntity(entity, position, renderable);
