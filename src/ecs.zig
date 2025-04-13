@@ -178,14 +178,38 @@ pub const ChunkedWorld = struct {
     chunks: std.AutoHashMap(ChunkCoord, Chunk),
     chunk_size: i32,
     allocator: std.mem.Allocator,
+    camera_entity: Entity,
 
-    pub fn init(allocator: std.mem.Allocator, chunk_size: i32) ChunkedWorld {
-        return ChunkedWorld{
+    pub fn init(allocator: std.mem.Allocator, chunk_size: i32) !ChunkedWorld {
+        var chunked_world = ChunkedWorld{
             .world = World.init(allocator),
             .chunks = std.AutoHashMap(ChunkCoord, Chunk).init(allocator),
             .chunk_size = chunk_size,
             .allocator = allocator,
+            .camera_entity = Entity{ .id = 0 },
         };
+        const camera_component = Camera{
+            .offset = rl.Vector2{ .x = 0, .y = 0 },
+            .target = rl.Vector2{ .x = 0, .y = 0 },
+            .rotation = 0,
+            .zoom = 1.0,
+            .is_dragging = false,
+            .drag_start = rl.Vector2{ .x = 0, .y = 0 },
+        };
+        const camera_entity = try chunked_world.createEntity(
+            Position{ .x = 0, .y = 0 },
+            Renderable{
+                .color = rl.Color{ .r = 0, .g = 0, .b = 0, .a = 0 },
+                .width = 0,
+                .height = 0,
+                .shape = .Rectangle,
+            },
+        );
+
+        chunked_world.camera_entity = camera_entity;
+        try chunked_world.world.addCamera(camera_entity, camera_component);
+
+        return chunked_world;
     }
 
     pub fn deinit(self: *ChunkedWorld) void {

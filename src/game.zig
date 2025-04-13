@@ -159,30 +159,11 @@ pub const Game = struct {
     camera_entity: ecs.Entity,
 
     pub fn init(allocator: std.mem.Allocator, chunk_size: i32) !Game {
-        const camera_component = Camera{
-            .offset = rl.Vector2{ .x = 0, .y = 0 },
-            .target = rl.Vector2{ .x = 0, .y = 0 },
-            .rotation = 0,
-            .zoom = 1.0,
-            .is_dragging = false,
-            .drag_start = rl.Vector2{ .x = 0, .y = 0 },
-        };
-
-        var chunked_world = ecs.ChunkedWorld.init(allocator, chunk_size);
-
-        // Create camera entity
-        const camera_entity = try chunked_world.createEntity(ecs.Position{ .x = 0, .y = 0 }, ecs.Renderable{
-            .color = rl.Color{ .r = 0, .g = 0, .b = 0, .a = 0 },
-            .width = 0,
-            .height = 0,
-            .shape = .Rectangle,
-        });
-
-        try chunked_world.world.addCamera(camera_entity, camera_component);
+        const chunked_world = try ecs.ChunkedWorld.init(allocator, chunk_size);
 
         return Game{
             .chunked_world = chunked_world,
-            .camera_entity = camera_entity,
+            .camera_entity = chunked_world.camera_entity,
         };
     }
 
