@@ -21,6 +21,15 @@ const Renderable = struct {
     texture_id: ?u32 = null,
 };
 
+const Camera = struct {
+    offset: rl.Vector2,
+    target: rl.Vector2,
+    rotation: f32,
+    zoom: f32,
+    is_dragging: bool,
+    drag_start: rl.Vector2,
+};
+
 const ChunkCoord = struct {
     x: i32,
     y: i32,
@@ -50,6 +59,7 @@ const Archetype = struct {
     entities: std.ArrayList(Entity),
     positions: std.ArrayList(Position),
     renderables: std.ArrayList(Renderable),
+    cameras: std.ArrayList(Camera),
 
     pub fn init(allocator: std.mem.Allocator, id: ArchetypeId) Archetype {
         return Archetype{
@@ -57,6 +67,7 @@ const Archetype = struct {
             .entities = std.ArrayList(Entity).init(allocator),
             .positions = std.ArrayList(Position).init(allocator),
             .renderables = std.ArrayList(Renderable).init(allocator),
+            .cameras = std.ArrayList(Camera).init(allocator),
         };
     }
 
@@ -64,12 +75,37 @@ const Archetype = struct {
         self.entities.deinit();
         self.positions.deinit();
         self.renderables.deinit();
+        self.cameras.deinit();
     }
 
     pub fn addEntity(self: *Archetype, entity: Entity, position: Position, renderable: Renderable) !void {
         try self.entities.append(entity);
         try self.positions.append(position);
         try self.renderables.append(renderable);
+
+        // Initialize with empty camera component
+        const empty_camera = Camera{
+            .offset = rl.Vector2{ .x = 0, .y = 0 },
+            .target = rl.Vector2{ .x = 0, .y = 0 },
+            .rotation = 0,
+            .zoom = 1.0,
+            .is_dragging = false,
+            .drag_start = rl.Vector2{ .x = 0, .y = 0 },
+        };
+        try self.cameras.append(empty_camera);
+    }
+
+    pub fn addCamera(self: *Archetype, entity: Entity) !void {
+        if (self.getEntityIndex(entity.id)) |entity_index| {
+            self.cameras.items[entity_index] = Camera{
+                .offset = rl.Vector2{ .x = 0, .y = 0 },
+                .target = rl.Vector2{ .x = 0, .y = 0 },
+                .rotation = 0,
+                .zoom = 1.0,
+                .is_dragging = false,
+                .drag_start = rl.Vector2{ .x = 0, .y = 0 },
+            };
+        }
     }
 
     pub fn getEntityIndex(self: Archetype, entity_id: u64) ?usize {
@@ -172,6 +208,25 @@ const World = struct {
         }
         return false;
     }
+
+    pub fn setCamera(self: *World, entity: Entity, camera: Camera) !void {
+        if (self.entityToArchetype.get(entity.id)) |archetype_index| {
+            const archetype = &self.archetypes.items[archetype_index];
+            if (archetype.getEntityIndex(entity.id)) |entity_index| {
+                archetype.cameras.items[entity_index] = camera;
+            }
+        }
+    }
+
+    pub fn getCamera(self: World, entity: Entity) ?Camera {
+        if (self.entityToArchetype.get(entity.id)) |archetype_index| {
+            const archetype = self.archetypes.items[archetype_index];
+            if (archetype.getEntityIndex(entity.id)) |entity_index| {
+                return archetype.cameras.items[entity_index];
+            }
+        }
+        return null;
+    }
 };
 
 const ChunkedWorld = struct {
@@ -264,7 +319,17 @@ const ChunkedWorld = struct {
     }
 };
 
-pub fn renderChunkedWorld(world: ChunkedWorld) void {
+pub fn renderChunkedWorld(world: ChunkedWorld, camera: Camera) void {
+    // Begin 2D camera mode using the camera component
+    const rl_camera = rl.Camera2D{
+        .offset = camera.offset,
+        .target = camera.target,
+        .rotation = camera.rotation,
+        .zoom = camera.zoom,
+    };
+    rl.beginMode2D(rl_camera);
+    defer rl.endMode2D();
+
     // Draw grid lines to visualize chunks
     const chunk_size_f: f32 = @floatFromInt(world.chunk_size);
 
@@ -317,6 +382,84 @@ pub fn renderChunkedWorld(world: ChunkedWorld) void {
     }
 }
 
+// Camera system to handle camera input and updates
+pub fn updateCameraSystem(world: *World, camera_entity: Entity) !void {
+    const camera_opt = world.getCamera(camera_entity);
+    if (camera_opt == null) return;
+
+    var camera = camera_opt.?;
+
+    // Handle camera panning
+    const mouse_pos = rl.getMousePosition();
+
+    if (rl.isMouseButtonPressed(.left)) {
+        camera.is_dragging = true;
+        camera.drag_start = mouse_pos;
+    }
+
+    if (rl.isMouseButtonDown(.left) and camera.is_dragging) {
+        // Calculate the movement delta and move camera in opposite direction
+        const delta_x = (mouse_pos.x - camera.drag_start.x) / camera.zoom;
+        const delta_y = (mouse_pos.y - camera.drag_start.y) / camera.zoom;
+
+        camera.target.x -= delta_x;
+        camera.target.y -= delta_y;
+
+        // Update drag start for next frame
+        camera.drag_start = mouse_pos;
+    }
+
+    if (rl.isMouseButtonReleased(.left)) {
+        camera.is_dragging = false;
+    }
+
+    // Handle zoom with mouse wheel
+    const wheel = rl.getMouseWheelMove();
+    if (wheel != 0) {
+        // Get world point before zoom
+        const mouse_world_pos = rl.getScreenToWorld2D(mouse_pos, rl.Camera2D{
+            .offset = camera.offset,
+            .target = camera.target,
+            .rotation = camera.rotation,
+            .zoom = camera.zoom,
+        });
+
+        // Zoom increment
+        camera.zoom += wheel * 0.1;
+        if (camera.zoom < 0.1) camera.zoom = 0.1;
+
+        // Get world point after zoom
+        const new_mouse_world_pos = rl.getScreenToWorld2D(mouse_pos, rl.Camera2D{
+            .offset = camera.offset,
+            .target = camera.target,
+            .rotation = camera.rotation,
+            .zoom = camera.zoom,
+        });
+
+        // Adjust camera target to zoom on mouse position
+        camera.target.x += mouse_world_pos.x - new_mouse_world_pos.x;
+        camera.target.y += mouse_world_pos.y - new_mouse_world_pos.y;
+    }
+
+    try world.setCamera(camera_entity, camera);
+}
+
+const EntityIdGenerator = struct {
+    next_id: u64,
+
+    pub fn init() EntityIdGenerator {
+        return EntityIdGenerator{
+            .next_id = 1,
+        };
+    }
+
+    pub fn next(self: *EntityIdGenerator) u64 {
+        const id = self.next_id;
+        self.next_id += 1;
+        return id;
+    }
+};
+
 pub fn main() anyerror!void {
     const screenWidth = 800;
     const screenHeight = 450;
@@ -332,47 +475,72 @@ pub fn main() anyerror!void {
     var chunked_world = ChunkedWorld.init(allocator, 100); // 100x100 pixel chunks
     defer chunked_world.deinit();
 
-    // Setup random number generator
-    var component_generator = ComponentGenerator.init(allocator);
+    // Simple entity ID generator
+    var entity_id_gen = EntityIdGenerator.init();
+
+    // Create a camera entity
+    const camera_entity = Entity{ .id = entity_id_gen.next() };
+
+    try chunked_world.world.createEntity(camera_entity, Position{ .x = 0, .y = 0 }, Renderable{
+        .color = rl.Color{ .r = 0, .g = 0, .b = 0, .a = 0 },
+        .width = 0,
+        .height = 0,
+        .shape = .Rectangle,
+    });
+
+    try chunked_world.world.archetypes.items[0].addCamera(camera_entity);
 
     // Create a red square entity
-    _ = try chunked_world.createEntity(component_generator.entity_counter, Position{ .x = @floatFromInt(screenWidth / 2 - 25), .y = @floatFromInt(screenHeight / 2 - 25) }, Renderable{
+    _ = try chunked_world.createEntity(entity_id_gen.next(), Position{ .x = @floatFromInt(screenWidth / 2 - 25), .y = @floatFromInt(screenHeight / 2 - 25) }, Renderable{
         .color = rl.Color{ .r = 255, .g = 0, .b = 0, .a = 255 },
         .width = 50,
         .height = 50,
         .shape = .Rectangle,
     });
-    component_generator.entity_counter += 1;
 
     // Create some random test entities
+    var test_gen = ComponentGenerator.init(allocator);
     for (0..20) |_| {
-        _ = try component_generator.createEntity(&chunked_world);
+        const position = test_gen.nextPosition();
+        const renderable = test_gen.nextRenderable();
+        _ = try chunked_world.createEntity(entity_id_gen.next(), position, renderable);
     }
 
     // Main game loop
     while (!rl.windowShouldClose()) {
+        // Update camera system
+        try updateCameraSystem(&chunked_world.world, camera_entity);
+
+        // Get updated camera for rendering
+        const camera = chunked_world.world.getCamera(camera_entity) orelse Camera{
+            .offset = rl.Vector2{ .x = 0, .y = 0 },
+            .target = rl.Vector2{ .x = 0, .y = 0 },
+            .rotation = 0,
+            .zoom = 1.0,
+            .is_dragging = false,
+            .drag_start = rl.Vector2{ .x = 0, .y = 0 },
+        };
+
         rl.beginDrawing();
         defer rl.endDrawing();
 
         rl.clearBackground(.black);
 
-        // Render the chunked world
-        renderChunkedWorld(chunked_world);
+        // Render the chunked world with camera
+        renderChunkedWorld(chunked_world, camera);
 
-        // Display some debug info
+        // Display some debug info (drawn outside camera mode for fixed position)
         rl.drawFPS(10, 10);
     }
 }
 
 const ComponentGenerator = struct {
     index: usize,
-    entity_counter: u64,
     allocator: std.mem.Allocator,
 
     pub fn init(allocator: std.mem.Allocator) ComponentGenerator {
         return ComponentGenerator{
             .index = 0,
-            .entity_counter = 1,
             .allocator = allocator,
         };
     }
@@ -410,13 +578,5 @@ const ComponentGenerator = struct {
             .height = 40,
             .shape = .Rectangle,
         };
-    }
-
-    pub fn createEntity(self: *ComponentGenerator, world: *ChunkedWorld) !Entity {
-        const position = self.nextPosition();
-        const renderable = self.nextRenderable();
-        const entity = try world.createEntity(self.entity_counter, position, renderable);
-        self.entity_counter += 1;
-        return entity;
     }
 };
