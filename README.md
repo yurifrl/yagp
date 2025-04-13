@@ -5,13 +5,13 @@
 - [x] Define core ECS types (Entity, Component interfaces)
 - [x] Create World structure to manage entities
 - [x] Implement Archetype storage system for component data
-- [ ] Create ChunkCoord struct for spatial organization
-- [ ] Define Chunk struct to contain entities in a spatial region
-- [ ] Implement ChunkedWorld to manage chunks and their entities
-- [ ] Add Position component for spatial placement
-- [ ] Create Renderable component for visual representation
-- [ ] Implement system to assign entities to chunks based on position
-- [ ] Create rendering system to display squares in their chunks
+- [x] Create ChunkCoord struct for spatial organization
+- [x] Define Chunk struct to contain entities in a spatial region
+- [x] Implement ChunkedWorld to manage chunks and their entities
+- [x] Add Position component for spatial placement
+- [x] Create Renderable component for visual representation
+- [x] Implement system to assign entities to chunks based on position
+- [x] Create rendering system to display squares in their chunks
 - [ ] Add input handling to place new squares in the world
 - [ ] Implement chunk activation/deactivation based on view area
 
