@@ -169,6 +169,13 @@ const ChunkedWorld = struct {
             try self.setEntityPosition(entity, position);
         }
     }
+
+    pub fn createEntity(self: *ChunkedWorld, position: Position, renderable: Renderable) !Entity {
+        const entity = Entity{ .id = @intCast(std.time.milliTimestamp() * 1000 + @as(u64, @truncate(@as(u128, @bitCast(std.time.nanoTimestamp()))))) };
+        try self.setEntityPosition(entity, position);
+        try self.world.setRenderable(entity, renderable);
+        return entity;
+    }
 };
 
 pub fn renderChunkedWorld(world: ChunkedWorld) void {
@@ -239,24 +246,21 @@ pub fn main() anyerror!void {
     var chunked_world = ChunkedWorld.init(allocator, 100); // 100x100 pixel chunks
     defer chunked_world.deinit();
 
-    // Create a single red square entity
-    const entity = Entity{ .id = 1 };
+    // Setup random number generator
+    var component_generator = ComponentGenerator.init(allocator);
 
-    // Center position
-    const x = @as(f32, @floatFromInt(screenWidth / 2 - 25));
-    const y = @as(f32, @floatFromInt(screenHeight / 2 - 25));
-    const position = Position{ .x = x, .y = y };
-
-    // Red square renderable
-    const renderable = Renderable{
+    // Create a red square entity
+    _ = try chunked_world.createEntity(Position{ .x = @floatFromInt(screenWidth / 2 - 25), .y = @floatFromInt(screenHeight / 2 - 25) }, Renderable{
         .color = rl.Color{ .r = 255, .g = 0, .b = 0, .a = 255 },
         .width = 50,
         .height = 50,
         .shape = .Rectangle,
-    };
+    });
 
-    try chunked_world.setEntityPosition(entity, position);
-    try chunked_world.world.setRenderable(entity, renderable);
+    // Create some random test entities
+    for (0..20) |_| {
+        _ = try component_generator.createEntity(&chunked_world);
+    }
 
     // Main game loop
     while (!rl.windowShouldClose()) {
@@ -272,3 +276,56 @@ pub fn main() anyerror!void {
         rl.drawFPS(10, 10);
     }
 }
+
+const ComponentGenerator = struct {
+    index: usize,
+    allocator: std.mem.Allocator,
+
+    pub fn init(allocator: std.mem.Allocator) ComponentGenerator {
+        return ComponentGenerator{
+            .index = 0,
+            .allocator = allocator,
+        };
+    }
+
+    pub fn nextPosition(self: *ComponentGenerator) Position {
+        const positions = [_]Position{
+            .{ .x = 100, .y = 100 },
+            .{ .x = 200, .y = 150 },
+            .{ .x = 300, .y = 200 },
+            .{ .x = 400, .y = 250 },
+            .{ .x = 500, .y = 300 },
+            .{ .x = 150, .y = 350 },
+            .{ .x = 250, .y = 400 },
+            .{ .x = 350, .y = 100 },
+            .{ .x = 450, .y = 150 },
+            .{ .x = 550, .y = 200 },
+        };
+
+        const result = positions[self.index % positions.len];
+        self.index += 1;
+        return result;
+    }
+
+    pub fn nextRenderable(self: *ComponentGenerator) Renderable {
+        const colors = [_]rl.Color{
+            .{ .r = 255, .g = 0, .b = 0, .a = 255 }, // Red
+            .{ .r = 255, .g = 255, .b = 0, .a = 255 }, // Yellow
+            .{ .r = 0, .g = 0, .b = 255, .a = 255 }, // Blue
+            .{ .r = 0, .g = 255, .b = 0, .a = 255 }, // Green
+        };
+
+        return Renderable{
+            .color = colors[self.index % colors.len],
+            .width = 40,
+            .height = 40,
+            .shape = .Rectangle,
+        };
+    }
+
+    pub fn createEntity(self: *ComponentGenerator, world: *ChunkedWorld) !Entity {
+        const position = self.nextPosition();
+        const renderable = self.nextRenderable();
+        return try world.createEntity(position, renderable);
+    }
+};
