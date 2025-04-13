@@ -170,8 +170,8 @@ const ChunkedWorld = struct {
         }
     }
 
-    pub fn createEntity(self: *ChunkedWorld, position: Position, renderable: Renderable) !Entity {
-        const entity = Entity{ .id = @intCast(std.time.milliTimestamp() * 1000 + @as(u64, @truncate(@as(u128, @bitCast(std.time.nanoTimestamp()))))) };
+    pub fn createEntity(self: *ChunkedWorld, id: u64, position: Position, renderable: Renderable) !Entity {
+        const entity = Entity{ .id = id };
         try self.setEntityPosition(entity, position);
         try self.world.setRenderable(entity, renderable);
         return entity;
@@ -250,12 +250,13 @@ pub fn main() anyerror!void {
     var component_generator = ComponentGenerator.init(allocator);
 
     // Create a red square entity
-    _ = try chunked_world.createEntity(Position{ .x = @floatFromInt(screenWidth / 2 - 25), .y = @floatFromInt(screenHeight / 2 - 25) }, Renderable{
+    _ = try chunked_world.createEntity(component_generator.entity_counter, Position{ .x = @floatFromInt(screenWidth / 2 - 25), .y = @floatFromInt(screenHeight / 2 - 25) }, Renderable{
         .color = rl.Color{ .r = 255, .g = 0, .b = 0, .a = 255 },
         .width = 50,
         .height = 50,
         .shape = .Rectangle,
     });
+    component_generator.entity_counter += 1;
 
     // Create some random test entities
     for (0..20) |_| {
@@ -279,11 +280,13 @@ pub fn main() anyerror!void {
 
 const ComponentGenerator = struct {
     index: usize,
+    entity_counter: u64,
     allocator: std.mem.Allocator,
 
     pub fn init(allocator: std.mem.Allocator) ComponentGenerator {
         return ComponentGenerator{
             .index = 0,
+            .entity_counter = 1,
             .allocator = allocator,
         };
     }
@@ -326,6 +329,8 @@ const ComponentGenerator = struct {
     pub fn createEntity(self: *ComponentGenerator, world: *ChunkedWorld) !Entity {
         const position = self.nextPosition();
         const renderable = self.nextRenderable();
-        return try world.createEntity(position, renderable);
+        const entity = try world.createEntity(self.entity_counter, position, renderable);
+        self.entity_counter += 1;
+        return entity;
     }
 };
