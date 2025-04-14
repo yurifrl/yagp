@@ -1,6 +1,10 @@
 const std = @import("std");
 const rl = @import("raylib");
 const debugger = @import("debugger.zig");
+const camera_mod = @import("camera.zig");
+
+// Re-export Camera for backwards compatibility
+pub const Camera = camera_mod.Camera;
 
 // Entity Types
 pub const Entity = struct {
@@ -10,24 +14,6 @@ pub const Entity = struct {
 pub const Position = struct {
     x: f32,
     y: f32,
-};
-
-pub const Camera = struct {
-    offset: rl.Vector2,
-    target: rl.Vector2,
-    rotation: f32,
-    zoom: f32,
-    is_dragging: bool,
-    drag_start: rl.Vector2,
-
-    pub fn toRaylib(self: Camera) rl.Camera2D {
-        return .{
-            .offset = self.offset,
-            .target = self.target,
-            .rotation = self.rotation,
-            .zoom = self.zoom,
-        };
-    }
 };
 
 pub const Renderable = struct {
@@ -228,7 +214,7 @@ pub const ChunkedWorld = struct {
                 .shape = .Rectangle,
             },
         );
-        const camera_component = Camera{
+        const camera_component = camera_mod.Camera{
             .offset = offset,
             .target = rl.Vector2{ .x = position.x, .y = position.y },
             .rotation = 0,
