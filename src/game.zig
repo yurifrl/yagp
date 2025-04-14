@@ -11,7 +11,7 @@ pub const Camera = ecs.Camera;
 
 // Update camera system with raylib input
 pub fn updateCameraSystem(chunked_world: *ecs.ChunkedWorld, camera_entity: ecs.Entity) !void {
-    var camera = chunked_world.world.getComponent(ecs.Camera, camera_entity) orelse return;
+    var camera = chunked_world.getComponent(ecs.Camera, camera_entity) orelse return;
 
     // Handle camera panning
     const mouse_pos = rl.getMousePosition();
@@ -57,13 +57,13 @@ pub fn updateCameraSystem(chunked_world: *ecs.ChunkedWorld, camera_entity: ecs.E
         camera.target.y += mouse_world_pos.y - new_mouse_world_pos.y;
     }
 
-    try chunked_world.world.setComponent(ecs.Camera, camera_entity, camera);
+    try chunked_world.setComponent(ecs.Camera, camera_entity, camera);
 }
 
 // Rendering function
 pub fn renderChunkedWorld(world: ecs.ChunkedWorld) void {
     // Get camera from world
-    const camera = world.world.getComponent(ecs.Camera, world.camera_entity) orelse return;
+    const camera = world.getComponent(ecs.Camera, world.camera_entity) orelse return;
 
     // Begin 2D mode with camera
     rl.beginMode2D(camera.toRaylib());
@@ -128,9 +128,9 @@ pub fn renderChunkedWorld(world: ecs.ChunkedWorld) void {
         rl.drawText(coord_text, @intFromFloat(chunk_center_x - 20), @intFromFloat(chunk_center_y), 12, chunk_coord_color);
 
         // Draw entities in this chunk
-        for (chunk.entities.items) |entity| {
-            const position = world.world.getComponent(ecs.Position, entity) orelse continue;
-            const renderable = world.world.getComponent(ecs.Renderable, entity) orelse continue;
+        for (chunk.iterEntities()) |entity| {
+            const position = world.getComponent(ecs.Position, entity) orelse continue;
+            const renderable = world.getComponent(ecs.Renderable, entity) orelse continue;
 
             switch (renderable.shape) {
                 .Rectangle => {

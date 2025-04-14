@@ -175,6 +175,10 @@ pub const Chunk = struct {
     pub fn deinit(self: *Chunk) void {
         self.entities.deinit();
     }
+
+    pub fn iterEntities(self: Chunk) []const Entity {
+        return self.entities.items;
+    }
 };
 
 // Chunked World without raylib dependencies
@@ -268,5 +272,13 @@ pub const ChunkedWorld = struct {
         try self.assignToChunk(entity, position);
 
         return entity;
+    }
+
+    pub fn getComponent(self: ChunkedWorld, comptime T: type, entity: Entity) ?T {
+        return self.world.getComponent(T, entity);
+    }
+
+    pub fn setComponent(self: *ChunkedWorld, comptime T: type, entity: Entity, component: T) !void {
+        return try self.world.setComponent(T, entity, component);
     }
 };

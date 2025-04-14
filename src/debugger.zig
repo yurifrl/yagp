@@ -128,24 +128,19 @@ pub fn logVisibleChunks(chunked_world: @import("ecs.zig").ChunkedWorld, camera_e
     if (!initialized) return;
 
     // Get camera component
-    const camera_opt = chunked_world.world.getComponent(@import("ecs.zig").Camera, camera_entity);
+    const camera_opt = chunked_world.getComponent(@import("ecs.zig").Camera, camera_entity);
     if (camera_opt == null) return;
     const camera = camera_opt.?;
 
-    // Create raylib camera from our camera component
-    const rl_camera = @import("raylib").Camera2D{
-        .offset = camera.offset,
-        .target = camera.target,
-        .rotation = camera.rotation,
-        .zoom = camera.zoom,
-    };
+    // Use camera's toRaylib method
+    const rl_camera = camera.toRaylib();
 
     // Calculate visible area in world coordinates
-    const screen_width = @import("raylib").getScreenWidth();
-    const screen_height = @import("raylib").getScreenHeight();
+    const screen_width = rl.getScreenWidth();
+    const screen_height = rl.getScreenHeight();
 
-    const top_left = @import("raylib").getScreenToWorld2D(@import("raylib").Vector2{ .x = 0, .y = 0 }, rl_camera);
-    const bottom_right = @import("raylib").getScreenToWorld2D(@import("raylib").Vector2{ .x = @floatFromInt(screen_width), .y = @floatFromInt(screen_height) }, rl_camera);
+    const top_left = rl.getScreenToWorld2D(rl.Vector2{ .x = 0, .y = 0 }, rl_camera);
+    const bottom_right = rl.getScreenToWorld2D(rl.Vector2{ .x = @floatFromInt(screen_width), .y = @floatFromInt(screen_height) }, rl_camera);
 
     // Calculate chunk grid boundaries
     const start_x = @divFloor(@as(i32, @intFromFloat(top_left.x)), chunked_world.chunk_size);
