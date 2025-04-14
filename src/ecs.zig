@@ -254,42 +254,6 @@ pub const ChunkedWorld = struct {
         try chunk.entities.append(entity);
     }
 
-    pub fn setEntityPosition(self: *ChunkedWorld, entity: Entity, pos: Position) !void {
-        // Remove from old chunk if exists
-        if (self.world.getComponent(Position, entity)) |old_pos| {
-            const old_coord = self.getChunkCoord(old_pos);
-            if (self.chunks.getPtr(old_coord)) |chunk| {
-                // Find and remove entity from old chunk
-                for (chunk.entities.items, 0..) |e, i| {
-                    if (e.id == entity.id) {
-                        _ = chunk.entities.orderedRemove(i);
-                        break;
-                    }
-                }
-            }
-
-            // Log position change
-            debugger.logFmt("Entity {d} moved from ({d:.1},{d:.1}) to ({d:.1},{d:.1})", .{ entity.id, old_pos.x, old_pos.y, pos.x, pos.y });
-        } else {
-            // New position being set
-            debugger.logFmt("Entity {d} positioned at ({d:.1},{d:.1})", .{ entity.id, pos.x, pos.y });
-        }
-
-        // Update position in world
-        try self.world.setComponent(Position, entity, pos);
-
-        // Add to new chunk
-        try self.assignToChunk(entity, pos);
-    }
-
-    pub fn assignEntitiesToChunks(self: *ChunkedWorld, entities: []const Entity, positions: []const Position) !void {
-        if (entities.len != positions.len) return error.MismatchedArrayLengths;
-
-        for (entities, positions) |entity, position| {
-            try self.setEntityPosition(entity, position);
-        }
-    }
-
     pub fn createEntity(self: *ChunkedWorld, position: Position, renderable: Renderable) !Entity {
         const entity = Entity{ .id = std.crypto.random.int(u64) };
 
