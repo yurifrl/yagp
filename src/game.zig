@@ -73,22 +73,11 @@ pub fn updateCameraSystem(chunked_world: *ecs.ChunkedWorld, camera_entity: ecs.E
 
 // Rendering function
 pub fn renderChunkedWorld(world: ecs.ChunkedWorld) void {
-    // Get main camera entity (this is a placeholder, would need to be actually tracked)
-    var camera_entity_opt: ?ecs.Entity = null;
-    if (world.world.archetypes.items.len > 0) {
-        const arch = world.world.archetypes.items[0];
-        for (arch.entities.items, 0..) |entity, i| {
-            // Check if entity has a camera
-            if (arch.has_cameras.items[i]) {
-                camera_entity_opt = entity;
-                break;
-            }
-        }
-    }
+    // Get camera entity from ChunkedWorld
+    const camera_entity = world.camera_entity;
 
-    if (camera_entity_opt == null) return;
+    if (camera_entity.id == 0) return;
 
-    const camera_entity = camera_entity_opt.?;
     const camera_opt = world.world.getComponent(ecs.Camera, camera_entity);
     if (camera_opt == null) return;
     const camera = camera_opt.?;
