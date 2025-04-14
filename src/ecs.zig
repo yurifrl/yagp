@@ -19,6 +19,15 @@ pub const Camera = struct {
     zoom: f32,
     is_dragging: bool,
     drag_start: rl.Vector2,
+
+    pub fn toRaylib(self: Camera) rl.Camera2D {
+        return .{
+            .offset = self.offset,
+            .target = self.target,
+            .rotation = self.rotation,
+            .zoom = self.zoom,
+        };
+    }
 };
 
 pub const Renderable = struct {
@@ -36,7 +45,6 @@ pub const Archetype = struct {
     id: ArchetypeId,
     entities: std.ArrayList(Entity),
     positions: std.ArrayList(Position),
-    has_cameras: std.ArrayList(bool),
     renderables: std.ArrayList(?Renderable),
     cameras: std.ArrayList(?Camera),
 
@@ -45,7 +53,6 @@ pub const Archetype = struct {
             .id = id,
             .entities = std.ArrayList(Entity).init(allocator),
             .positions = std.ArrayList(Position).init(allocator),
-            .has_cameras = std.ArrayList(bool).init(allocator),
             .renderables = std.ArrayList(?Renderable).init(allocator),
             .cameras = std.ArrayList(?Camera).init(allocator),
         };
@@ -54,7 +61,6 @@ pub const Archetype = struct {
     pub fn deinit(self: *Archetype) void {
         self.entities.deinit();
         self.positions.deinit();
-        self.has_cameras.deinit();
         self.renderables.deinit();
         self.cameras.deinit();
     }
@@ -62,14 +68,12 @@ pub const Archetype = struct {
     pub fn addEntity(self: *Archetype, entity: Entity, position: Position, renderable: Renderable) !void {
         try self.entities.append(entity);
         try self.positions.append(position);
-        try self.has_cameras.append(false);
         try self.renderables.append(renderable);
         try self.cameras.append(null);
     }
 
     pub fn addCamera(self: *Archetype, entity: Entity, camera: Camera) !void {
         if (self.getEntityIndex(entity.id)) |entity_index| {
-            self.has_cameras.items[entity_index] = true;
             self.cameras.items[entity_index] = camera;
         }
     }

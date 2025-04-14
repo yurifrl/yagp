@@ -11,8 +11,7 @@ pub const Camera = ecs.Camera;
 
 // Update camera system with raylib input
 pub fn updateCameraSystem(chunked_world: *ecs.ChunkedWorld, camera_entity: ecs.Entity) !void {
-    const camera_component = chunked_world.world.getComponent(ecs.Camera, camera_entity) orelse return;
-    var camera = camera_component;
+    var camera = chunked_world.world.getComponent(ecs.Camera, camera_entity) orelse return;
 
     // Handle camera panning
     const mouse_pos = rl.getMousePosition();
@@ -44,24 +43,14 @@ pub fn updateCameraSystem(chunked_world: *ecs.ChunkedWorld, camera_entity: ecs.E
     const wheel = rl.getMouseWheelMove();
     if (wheel != 0) {
         // Get world point before zoom
-        const mouse_world_pos = rl.getScreenToWorld2D(mouse_pos, rl.Camera2D{
-            .offset = camera.offset,
-            .target = camera.target,
-            .rotation = camera.rotation,
-            .zoom = camera.zoom,
-        });
+        const mouse_world_pos = rl.getScreenToWorld2D(mouse_pos, camera.toRaylib());
 
         // Zoom increment
         camera.zoom += wheel * 0.1;
         if (camera.zoom < 0.1) camera.zoom = 0.1;
 
         // Get world point after zoom
-        const new_mouse_world_pos = rl.getScreenToWorld2D(mouse_pos, rl.Camera2D{
-            .offset = camera.offset,
-            .target = camera.target,
-            .rotation = camera.rotation,
-            .zoom = camera.zoom,
-        });
+        const new_mouse_world_pos = rl.getScreenToWorld2D(mouse_pos, camera.toRaylib());
 
         // Adjust camera target to zoom on mouse position
         camera.target.x += mouse_world_pos.x - new_mouse_world_pos.x;
@@ -73,35 +62,21 @@ pub fn updateCameraSystem(chunked_world: *ecs.ChunkedWorld, camera_entity: ecs.E
 
 // Rendering function
 pub fn renderChunkedWorld(world: ecs.ChunkedWorld) void {
-    // Get camera entity from ChunkedWorld
-    const camera_entity = world.camera_entity;
+    // Get camera from world
+    const camera = world.world.getComponent(ecs.Camera, world.camera_entity) orelse return;
 
-    if (camera_entity.id == 0) return;
-
-    const camera_opt = world.world.getComponent(ecs.Camera, camera_entity);
-    if (camera_opt == null) return;
-    const camera = camera_opt.?;
-
-    // Begin 2D camera mode using the camera component
-    const rl_camera = rl.Camera2D{
-        .offset = camera.offset,
-        .target = camera.target,
-        .rotation = camera.rotation,
-        .zoom = camera.zoom,
-    };
-
-    rl.beginMode2D(rl_camera);
+    // Begin 2D mode with camera
+    rl.beginMode2D(camera.toRaylib());
     defer rl.endMode2D();
 
-    // Draw grid lines to visualize chunks
+    // Calculate visible area
     const chunk_size_f: f32 = @floatFromInt(world.chunk_size);
 
-    // Calculate visible area in world coordinates based on camera view
+    // Get screen bounds in world coordinates
     const screen_width = rl.getScreenWidth();
     const screen_height = rl.getScreenHeight();
-
-    const top_left = rl.getScreenToWorld2D(rl.Vector2{ .x = 0, .y = 0 }, rl_camera);
-    const bottom_right = rl.getScreenToWorld2D(rl.Vector2{ .x = @floatFromInt(screen_width), .y = @floatFromInt(screen_height) }, rl_camera);
+    const top_left = rl.getScreenToWorld2D(.{ .x = 0, .y = 0 }, camera.toRaylib());
+    const bottom_right = rl.getScreenToWorld2D(.{ .x = @floatFromInt(screen_width), .y = @floatFromInt(screen_height) }, camera.toRaylib());
 
     // Calculate chunk grid boundaries
     const start_x = @divFloor(@as(i32, @intFromFloat(top_left.x)), world.chunk_size) * world.chunk_size;
@@ -109,19 +84,23 @@ pub fn renderChunkedWorld(world: ecs.ChunkedWorld) void {
     const start_y = @divFloor(@as(i32, @intFromFloat(top_left.y)), world.chunk_size) * world.chunk_size;
     const end_y = @divFloor(@as(i32, @intFromFloat(bottom_right.y)), world.chunk_size) * world.chunk_size + world.chunk_size * 2;
 
+    // Draw grid
+    const grid_color = rl.Color{ .r = 50, .g = 50, .b = 50, .a = 255 };
+
     // Draw vertical grid lines
-    var x: f32 = @floatFromInt(start_x);
+    var x = @as(f32, @floatFromInt(start_x));
     while (x < @as(f32, @floatFromInt(end_x))) : (x += chunk_size_f) {
-        rl.drawLine(@intFromFloat(x), @intFromFloat(@as(f32, @floatFromInt(start_y))), @intFromFloat(x), @intFromFloat(@as(f32, @floatFromInt(end_y))), rl.Color{ .r = 50, .g = 50, .b = 50, .a = 255 });
+        rl.drawLine(@intFromFloat(x), @intFromFloat(@as(f32, @floatFromInt(start_y))), @intFromFloat(x), @intFromFloat(@as(f32, @floatFromInt(end_y))), grid_color);
     }
 
     // Draw horizontal grid lines
-    var y: f32 = @floatFromInt(start_y);
+    var y = @as(f32, @floatFromInt(start_y));
     while (y < @as(f32, @floatFromInt(end_y))) : (y += chunk_size_f) {
-        rl.drawLine(@intFromFloat(@as(f32, @floatFromInt(start_x))), @intFromFloat(y), @intFromFloat(@as(f32, @floatFromInt(end_x))), @intFromFloat(y), rl.Color{ .r = 50, .g = 50, .b = 50, .a = 255 });
+        rl.drawLine(@intFromFloat(@as(f32, @floatFromInt(start_x))), @intFromFloat(y), @intFromFloat(@as(f32, @floatFromInt(end_x))), @intFromFloat(y), grid_color);
     }
 
     // Draw each chunk with its entities
+    const chunk_coord_color = rl.Color{ .r = 180, .g = 180, .b = 180, .a = 255 };
     var chunk_iter = world.chunks.iterator();
     while (chunk_iter.next()) |entry| {
         const chunk = entry.value_ptr.*;
@@ -140,30 +119,29 @@ pub fn renderChunkedWorld(world: ecs.ChunkedWorld) void {
         }
 
         // Render chunk coordinate in the center of the chunk
-        const chunk_center_x: f32 = chunk_world_x + (chunk_size_f / 2);
-        const chunk_center_y: f32 = chunk_world_y + (chunk_size_f / 2);
+        const chunk_center_x = chunk_world_x + (chunk_size_f / 2);
+        const chunk_center_y = chunk_world_y + (chunk_size_f / 2);
 
         const coord_text = std.fmt.allocPrintZ(world.allocator, "({}, {})", .{ chunk.coord.x, chunk.coord.y }) catch continue;
         defer world.allocator.free(coord_text);
 
-        rl.drawText(coord_text, @intFromFloat(chunk_center_x - 20), @intFromFloat(chunk_center_y), 12, rl.Color{ .r = 180, .g = 180, .b = 180, .a = 255 });
+        rl.drawText(coord_text, @intFromFloat(chunk_center_x - 20), @intFromFloat(chunk_center_y), 12, chunk_coord_color);
 
         // Draw entities in this chunk
         for (chunk.entities.items) |entity| {
-            if (world.world.getComponent(ecs.Position, entity)) |position| {
-                if (world.world.getComponent(ecs.Renderable, entity)) |renderable| {
-                    switch (renderable.shape) {
-                        .Rectangle => {
-                            rl.drawRectangle(@intFromFloat(position.x), @intFromFloat(position.y), @intFromFloat(renderable.width), @intFromFloat(renderable.height), renderable.color);
-                        },
-                        .Circle => {
-                            rl.drawCircle(@intFromFloat(position.x), @intFromFloat(position.y), renderable.width / 2, renderable.color);
-                        },
-                        .Texture => {
-                            // Texture rendering would go here if implemented
-                        },
-                    }
-                }
+            const position = world.world.getComponent(ecs.Position, entity) orelse continue;
+            const renderable = world.world.getComponent(ecs.Renderable, entity) orelse continue;
+
+            switch (renderable.shape) {
+                .Rectangle => {
+                    rl.drawRectangle(@intFromFloat(position.x), @intFromFloat(position.y), @intFromFloat(renderable.width), @intFromFloat(renderable.height), renderable.color);
+                },
+                .Circle => {
+                    rl.drawCircle(@intFromFloat(position.x), @intFromFloat(position.y), renderable.width / 2, renderable.color);
+                },
+                .Texture => {
+                    // Texture rendering would go here if implemented
+                },
             }
         }
     }
