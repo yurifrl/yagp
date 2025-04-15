@@ -19,9 +19,7 @@ pub const Game = struct {
     pub fn init(allocator: std.mem.Allocator, chunk_size: i32) !Game {
         const chunked_world = try ecs.ChunkedWorld.init(allocator, chunk_size);
         const camera_entity = chunked_world.camera_entity;
-        const camera_component = chunked_world.getComponent(Camera, camera_entity) orelse {
-            return error.CameraNotFound;
-        };
+        const camera_component = try chunked_world.getComponentOrError(Camera, camera_entity);
 
         return Game{
             .chunked_world = chunked_world,
@@ -129,19 +127,20 @@ fn renderGrid(start_x: i32, end_x: i32, start_y: i32, end_y: i32, chunk_size_f: 
 
 fn renderEntities(world: ecs.ChunkedWorld, chunk: ecs.Chunk) void {
     for (chunk.iterEntities()) |entity| {
-        const position = world.getComponent(ecs.Position, entity) orelse continue;
-        const renderable = world.getComponent(ecs.Renderable, entity) orelse continue;
-
-        switch (renderable.shape) {
-            .Rectangle => {
-                rl.drawRectangle(@intFromFloat(position.x), @intFromFloat(position.y), @intFromFloat(renderable.width), @intFromFloat(renderable.height), renderable.color);
-            },
-            .Circle => {
-                rl.drawCircle(@intFromFloat(position.x), @intFromFloat(position.y), renderable.width / 2, renderable.color);
-            },
-            .Texture => {
-                // Texture rendering would go here if implemented
-            },
-        }
+        world.withComponents(entity, struct {
+            pub fn callback(position: ecs.Position, renderable: ecs.Renderable, _: ?ecs.Camera) !void {
+                switch (renderable.shape) {
+                    .Rectangle => {
+                        rl.drawRectangle(@intFromFloat(position.x), @intFromFloat(position.y), @intFromFloat(renderable.width), @intFromFloat(renderable.height), renderable.color);
+                    },
+                    .Circle => {
+                        rl.drawCircle(@intFromFloat(position.x), @intFromFloat(position.y), renderable.width / 2, renderable.color);
+                    },
+                    .Texture => {
+                        // Texture rendering would go here if implemented
+                    },
+                }
+            }
+        }.callback) catch continue;
     }
 }

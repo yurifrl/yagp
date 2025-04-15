@@ -285,4 +285,21 @@ pub const ChunkedWorld = struct {
             chunk_world_y + chunk_size_f < top_left.y or
             chunk_world_y > bottom_right.y);
     }
+
+    pub fn getComponentOrError(self: ChunkedWorld, comptime T: type, entity: Entity) !T {
+        return self.getComponent(T, entity) orelse error.ComponentNotFound;
+    }
+
+    pub fn withComponents(self: ChunkedWorld, entity: Entity, comptime callback: anytype) error{ComponentNotFound}!void {
+        // Get entity archetype and index directly
+        const archetype_index = self.entityToArchetype.get(entity.id) orelse return error.ComponentNotFound;
+        const archetype = &self.archetypes.items[archetype_index];
+        const entity_index = archetype.getEntityIndex(entity.id) orelse return error.ComponentNotFound;
+
+        const position = archetype.positions.items[entity_index];
+        const renderable = archetype.renderables.items[entity_index] orelse return error.ComponentNotFound;
+        const camera = archetype.cameras.items[entity_index];
+
+        return callback(position, renderable, camera);
+    }
 };

@@ -10,7 +10,7 @@ This code needs to adhere to locality and behavior patterns. The current archite
 
 4. Extract common chunk visibility calculation into a shared utility function used by both rendering and debugging.
 
-5. Implement a more generic component system that doesn't require hardcoded component types in switch statements.
+*5. Implement a more generic component system that doesn't require hardcoded component types in switch statements.
 
 6. Create clear boundaries between systems. Each system should own its behavior and only communicate through well-defined interfaces.
 
