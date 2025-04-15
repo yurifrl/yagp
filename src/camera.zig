@@ -22,9 +22,7 @@ pub const Camera = struct {
 };
 
 // Update camera system with raylib input
-pub fn updateSystem(world: *ecs.ChunkedWorld, camera_entity: ecs.Entity) !void {
-    var camera = world.getComponent(Camera, camera_entity) orelse return;
-
+pub fn updateSystem(camera: *Camera) void {
     // Handle camera panning
     const mouse_pos = rl.getMousePosition();
 
@@ -68,6 +66,4 @@ pub fn updateSystem(world: *ecs.ChunkedWorld, camera_entity: ecs.Entity) !void {
         camera.target.x += mouse_world_pos.x - new_mouse_world_pos.x;
         camera.target.y += mouse_world_pos.y - new_mouse_world_pos.y;
     }
-
-    try world.setComponent(Camera, camera_entity, camera);
 }
