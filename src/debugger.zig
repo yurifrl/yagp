@@ -127,42 +127,24 @@ pub fn render() void {
 pub fn logVisibleChunks(chunked_world: @import("ecs.zig").ChunkedWorld, camera_entity: @import("ecs.zig").Entity) void {
     if (!initialized) return;
 
-    // Get camera component
-    const camera_opt = chunked_world.getComponent(@import("ecs.zig").Camera, camera_entity);
-    if (camera_opt == null) return;
-    const camera = camera_opt.?;
+    // Use the utility function for visibility calculation
+    const visibility_result = chunked_world.getVisibleChunks(camera_entity) catch return;
+    defer visibility_result.visible_chunks.deinit();
 
-    // Use camera's toRaylib method
-    const rl_camera = camera.toRaylib();
-
-    // Calculate visible area in world coordinates
-    const screen_width = rl.getScreenWidth();
-    const screen_height = rl.getScreenHeight();
-
-    const top_left = rl.getScreenToWorld2D(rl.Vector2{ .x = 0, .y = 0 }, rl_camera);
-    const bottom_right = rl.getScreenToWorld2D(rl.Vector2{ .x = @floatFromInt(screen_width), .y = @floatFromInt(screen_height) }, rl_camera);
-
-    // Calculate chunk grid boundaries
-    const start_x = @divFloor(@as(i32, @intFromFloat(top_left.x)), chunked_world.chunk_size);
-    const end_x = @divFloor(@as(i32, @intFromFloat(bottom_right.x)), chunked_world.chunk_size) + 1;
-    const start_y = @divFloor(@as(i32, @intFromFloat(top_left.y)), chunked_world.chunk_size);
-    const end_y = @divFloor(@as(i32, @intFromFloat(bottom_right.y)), chunked_world.chunk_size) + 1;
+    // Extract boundaries from result
+    const start_x = @divFloor(@as(i32, @intFromFloat(visibility_result.top_left.x)), chunked_world.chunk_size);
+    const end_x = @divFloor(@as(i32, @intFromFloat(visibility_result.bottom_right.x)), chunked_world.chunk_size) + 1;
+    const start_y = @divFloor(@as(i32, @intFromFloat(visibility_result.top_left.y)), chunked_world.chunk_size);
+    const end_y = @divFloor(@as(i32, @intFromFloat(visibility_result.bottom_right.y)), chunked_world.chunk_size) + 1;
 
     // Count visible chunks
-    var visible_count: usize = 0;
+    const visible_count = visibility_result.visible_chunks.items.len;
     var existing_count: usize = 0;
 
-    // Check each potentially visible chunk
-    var y = start_y;
-    while (y <= end_y) : (y += 1) {
-        var x = start_x;
-        while (x <= end_x) : (x += 1) {
-            const coord = @import("ecs.zig").ChunkCoord{ .x = x, .y = y };
-            visible_count += 1;
-
-            if (chunked_world.chunks.contains(coord)) {
-                existing_count += 1;
-            }
+    // Check how many visible chunks actually exist
+    for (visibility_result.visible_chunks.items) |coord| {
+        if (chunked_world.chunks.contains(coord)) {
+            existing_count += 1;
         }
     }
 

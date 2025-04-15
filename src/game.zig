@@ -62,20 +62,21 @@ pub const Game = struct {
         // Calculate visible area
         const chunk_size_f: f32 = @floatFromInt(self.chunked_world.chunk_size);
 
-        // Get screen bounds in world coordinates
-        const screen_width = rl.getScreenWidth();
-        const screen_height = rl.getScreenHeight();
-        const top_left = rl.getScreenToWorld2D(.{ .x = 0, .y = 0 }, self.camera_component.toRaylib());
-        const bottom_right = rl.getScreenToWorld2D(.{ .x = @floatFromInt(screen_width), .y = @floatFromInt(screen_height) }, self.camera_component.toRaylib());
+        // Get visible chunks using the utility function
+        const visibility_result = self.chunked_world.getVisibleChunks(self.camera_entity) catch {
+            // Handle error by returning early
+            return;
+        };
+        defer visibility_result.visible_chunks.deinit();
 
-        // Calculate chunk grid boundaries
-        const start_x = @divFloor(@as(i32, @intFromFloat(top_left.x)), self.chunked_world.chunk_size) * self.chunked_world.chunk_size;
-        const end_x = @divFloor(@as(i32, @intFromFloat(bottom_right.x)), self.chunked_world.chunk_size) * self.chunked_world.chunk_size + self.chunked_world.chunk_size * 2;
-        const start_y = @divFloor(@as(i32, @intFromFloat(top_left.y)), self.chunked_world.chunk_size) * self.chunked_world.chunk_size;
-        const end_y = @divFloor(@as(i32, @intFromFloat(bottom_right.y)), self.chunked_world.chunk_size) * self.chunked_world.chunk_size + self.chunked_world.chunk_size * 2;
+        // Calculate chunk grid boundaries for grid rendering
+        const start_x = @divFloor(@as(i32, @intFromFloat(visibility_result.top_left.x)), self.chunked_world.chunk_size) * self.chunked_world.chunk_size;
+        const end_x = @divFloor(@as(i32, @intFromFloat(visibility_result.bottom_right.x)), self.chunked_world.chunk_size) * self.chunked_world.chunk_size + self.chunked_world.chunk_size * 2;
+        const start_y = @divFloor(@as(i32, @intFromFloat(visibility_result.top_left.y)), self.chunked_world.chunk_size) * self.chunked_world.chunk_size;
+        const end_y = @divFloor(@as(i32, @intFromFloat(visibility_result.bottom_right.y)), self.chunked_world.chunk_size) * self.chunked_world.chunk_size + self.chunked_world.chunk_size * 2;
 
         renderGrid(start_x, end_x, start_y, end_y, chunk_size_f);
-        self.renderChunks(top_left, bottom_right, chunk_size_f);
+        self.renderChunks(visibility_result.top_left, visibility_result.bottom_right, chunk_size_f);
     }
 
     fn renderChunks(self: Game, top_left: rl.Vector2, bottom_right: rl.Vector2, chunk_size_f: f32) void {
@@ -84,18 +85,14 @@ pub const Game = struct {
         while (chunk_iter.next()) |entry| {
             const chunk = entry.value_ptr.*;
 
+            // Check visibility using the utility function
+            if (!self.chunked_world.isChunkVisible(chunk.coord, top_left, bottom_right)) {
+                continue;
+            }
+
             // Calculate chunk position in world coordinates
             const chunk_world_x = @as(f32, @floatFromInt(chunk.coord.x * self.chunked_world.chunk_size));
             const chunk_world_y = @as(f32, @floatFromInt(chunk.coord.y * self.chunked_world.chunk_size));
-
-            // Skip chunks outside of visible area
-            if (chunk_world_x + chunk_size_f < top_left.x or
-                chunk_world_x > bottom_right.x or
-                chunk_world_y + chunk_size_f < top_left.y or
-                chunk_world_y > bottom_right.y)
-            {
-                continue;
-            }
 
             self.renderChunkCoordinates(chunk, chunk_world_x, chunk_world_y, chunk_size_f, chunk_coord_color);
             renderEntities(self.chunked_world, chunk);

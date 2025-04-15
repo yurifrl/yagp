@@ -240,4 +240,49 @@ pub const ChunkedWorld = struct {
             }
         }
     }
+
+    pub fn getVisibleChunks(self: ChunkedWorld, camera_entity: Entity) !struct { top_left: rl.Vector2, bottom_right: rl.Vector2, visible_chunks: std.ArrayList(ChunkCoord) } {
+        var result = std.ArrayList(ChunkCoord).init(self.allocator);
+
+        const camera_comp = self.getComponent(Camera, camera_entity) orelse return error.CameraNotFound;
+
+        // Get screen bounds in world coordinates
+        const screen_width = rl.getScreenWidth();
+        const screen_height = rl.getScreenHeight();
+        const top_left = rl.getScreenToWorld2D(.{ .x = 0, .y = 0 }, camera_comp.toRaylib());
+        const bottom_right = rl.getScreenToWorld2D(.{ .x = @floatFromInt(screen_width), .y = @floatFromInt(screen_height) }, camera_comp.toRaylib());
+
+        // Calculate chunk grid boundaries
+        const start_chunk_x = @divFloor(@as(i32, @intFromFloat(top_left.x)), self.chunk_size);
+        const end_chunk_x = @divFloor(@as(i32, @intFromFloat(bottom_right.x)), self.chunk_size) + 1;
+        const start_chunk_y = @divFloor(@as(i32, @intFromFloat(top_left.y)), self.chunk_size);
+        const end_chunk_y = @divFloor(@as(i32, @intFromFloat(bottom_right.y)), self.chunk_size) + 1;
+
+        // Collect all chunks in the visible area
+        var y = start_chunk_y;
+        while (y <= end_chunk_y) : (y += 1) {
+            var x = start_chunk_x;
+            while (x <= end_chunk_x) : (x += 1) {
+                const coord = ChunkCoord{ .x = x, .y = y };
+                try result.append(coord);
+            }
+        }
+
+        return .{
+            .top_left = top_left,
+            .bottom_right = bottom_right,
+            .visible_chunks = result,
+        };
+    }
+
+    pub fn isChunkVisible(self: ChunkedWorld, chunk_coord: ChunkCoord, top_left: rl.Vector2, bottom_right: rl.Vector2) bool {
+        const chunk_size_f: f32 = @floatFromInt(self.chunk_size);
+        const chunk_world_x = @as(f32, @floatFromInt(chunk_coord.x * self.chunk_size));
+        const chunk_world_y = @as(f32, @floatFromInt(chunk_coord.y * self.chunk_size));
+
+        return !(chunk_world_x + chunk_size_f < top_left.x or
+            chunk_world_x > bottom_right.x or
+            chunk_world_y + chunk_size_f < top_left.y or
+            chunk_world_y > bottom_right.y);
+    }
 };
