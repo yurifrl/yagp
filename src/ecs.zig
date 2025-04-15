@@ -24,53 +24,167 @@ pub const Renderable = struct {
     texture_id: ?u32 = null,
 };
 
-// ECS System
-pub const ArchetypeId = u64;
+// Component storage interface with type erasure
+pub const ComponentStorageInterface = struct {
+    ptr: *anyopaque,
+    vtable: *const VTable,
 
-pub const Archetype = struct {
-    id: ArchetypeId,
-    entities: std.ArrayList(Entity),
-    positions: std.ArrayList(Position),
-    renderables: std.ArrayList(?Renderable),
-    cameras: std.ArrayList(?Camera),
-    entityToIndex: std.AutoHashMap(u64, usize),
+    pub const VTable = struct {
+        deinit: *const fn (ptr: *anyopaque) void,
+        get: *const fn (ptr: *anyopaque, entity_id: u64) ?*anyopaque,
+        set: *const fn (ptr: *anyopaque, entity_id: u64, component_ptr: *const anyopaque) anyerror!void,
+        remove: *const fn (ptr: *anyopaque, entity_id: u64) void,
+    };
 
-    pub fn init(allocator: std.mem.Allocator, id: ArchetypeId) Archetype {
-        return Archetype{
-            .id = id,
-            .entities = std.ArrayList(Entity).init(allocator),
-            .positions = std.ArrayList(Position).init(allocator),
-            .renderables = std.ArrayList(?Renderable).init(allocator),
-            .cameras = std.ArrayList(?Camera).init(allocator),
-            .entityToIndex = std.AutoHashMap(u64, usize).init(allocator),
+    pub fn deinit(self: ComponentStorageInterface) void {
+        self.vtable.deinit(self.ptr);
+    }
+
+    pub fn get(self: ComponentStorageInterface, entity_id: u64) ?*anyopaque {
+        return self.vtable.get(self.ptr, entity_id);
+    }
+
+    pub fn set(self: ComponentStorageInterface, entity_id: u64, component_ptr: *const anyopaque) !void {
+        return self.vtable.set(self.ptr, entity_id, component_ptr);
+    }
+
+    pub fn remove(self: ComponentStorageInterface, entity_id: u64) void {
+        self.vtable.remove(self.ptr, entity_id);
+    }
+};
+
+// Type-specific component storage implementation
+pub fn ComponentStorage(comptime T: type) type {
+    return struct {
+        const Self = @This();
+        data: std.AutoHashMap(u64, T),
+        allocator: std.mem.Allocator,
+
+        pub fn init(allocator: std.mem.Allocator) Self {
+            return .{
+                .data = std.AutoHashMap(u64, T).init(allocator),
+                .allocator = allocator,
+            };
+        }
+
+        pub fn deinit(self: *Self) void {
+            self.data.deinit();
+        }
+
+        pub fn interface(self: *Self) ComponentStorageInterface {
+            return .{
+                .ptr = self,
+                .vtable = &.{
+                    .deinit = deinitFn,
+                    .get = getFn,
+                    .set = setFn,
+                    .remove = removeFn,
+                },
+            };
+        }
+
+        fn deinitFn(ptr: *anyopaque) void {
+            const self = @as(*Self, @ptrCast(@alignCast(ptr)));
+            self.deinit();
+        }
+
+        fn getFn(ptr: *anyopaque, entity_id: u64) ?*anyopaque {
+            const self = @as(*Self, @ptrCast(@alignCast(ptr)));
+            if (self.data.getPtr(entity_id)) |component| {
+                return component;
+            }
+            return null;
+        }
+
+        fn setFn(ptr: *anyopaque, entity_id: u64, component_ptr: *const anyopaque) !void {
+            const self = @as(*Self, @ptrCast(@alignCast(ptr)));
+            const component = @as(*const T, @ptrCast(@alignCast(component_ptr))).*;
+            try self.data.put(entity_id, component);
+        }
+
+        fn removeFn(ptr: *anyopaque, entity_id: u64) void {
+            const self = @as(*Self, @ptrCast(@alignCast(ptr)));
+            _ = self.data.remove(entity_id);
+        }
+    };
+}
+
+// Entity Manager
+pub const EntityManager = struct {
+    allocator: std.mem.Allocator,
+    entities: std.AutoHashMap(u64, Entity),
+    component_storages: std.StringHashMap(ComponentStorageInterface),
+    next_id: u64,
+
+    pub fn init(allocator: std.mem.Allocator) EntityManager {
+        return .{
+            .allocator = allocator,
+            .entities = std.AutoHashMap(u64, Entity).init(allocator),
+            .component_storages = std.StringHashMap(ComponentStorageInterface).init(allocator),
+            .next_id = 1,
         };
     }
 
-    pub fn deinit(self: *Archetype) void {
-        self.entities.deinit();
-        self.positions.deinit();
-        self.renderables.deinit();
-        self.cameras.deinit();
-        self.entityToIndex.deinit();
-    }
-
-    pub fn addEntity(self: *Archetype, entity: Entity, position: Position, renderable: Renderable) !void {
-        const index = self.entities.items.len;
-        try self.entityToIndex.put(entity.id, index);
-        try self.entities.append(entity);
-        try self.positions.append(position);
-        try self.renderables.append(renderable);
-        try self.cameras.append(null);
-    }
-
-    pub fn addCamera(self: *Archetype, entity: Entity, camera: Camera) !void {
-        if (self.getEntityIndex(entity.id)) |entity_index| {
-            self.cameras.items[entity_index] = camera;
+    pub fn deinit(self: *EntityManager) void {
+        var storage_iter = self.component_storages.valueIterator();
+        while (storage_iter.next()) |storage| {
+            storage.deinit();
         }
+        self.component_storages.deinit();
+        self.entities.deinit();
     }
 
-    pub fn getEntityIndex(self: Archetype, entity_id: u64) ?usize {
-        return self.entityToIndex.get(entity_id);
+    pub fn createEntity(self: *EntityManager) !Entity {
+        const entity = Entity{ .id = self.next_id };
+        try self.entities.put(entity.id, entity);
+        self.next_id += 1;
+        return entity;
+    }
+
+    pub fn addComponent(self: *EntityManager, entity: Entity, component: anytype) !void {
+        const T = @TypeOf(component);
+        const type_name = @typeName(T);
+
+        if (!self.component_storages.contains(type_name)) {
+            var storage_ptr = try self.allocator.create(ComponentStorage(T));
+            storage_ptr.* = ComponentStorage(T).init(self.allocator);
+            try self.component_storages.put(type_name, storage_ptr.interface());
+        }
+
+        const storage = self.component_storages.get(type_name).?;
+        try storage.set(entity.id, &component);
+    }
+
+    pub fn getComponent(self: EntityManager, comptime T: type, entity: Entity) ?T {
+        const type_name = @typeName(T);
+        if (self.component_storages.get(type_name)) |storage| {
+            if (storage.get(entity.id)) |ptr| {
+                return @as(*T, @ptrCast(@alignCast(ptr))).*;
+            }
+        }
+        return null;
+    }
+
+    pub fn setComponent(self: *EntityManager, entity: Entity, component: anytype) !void {
+        const T = @TypeOf(component);
+        const type_name = @typeName(T);
+
+        if (!self.component_storages.contains(type_name)) {
+            try self.addComponent(entity, component);
+            return;
+        }
+
+        const storage = self.component_storages.get(type_name).?;
+        storage.remove(entity.id);
+        try storage.set(entity.id, &component);
+    }
+
+    pub fn removeEntity(self: *EntityManager, entity: Entity) void {
+        var storage_iter = self.component_storages.valueIterator();
+        while (storage_iter.next()) |storage| {
+            storage.remove(entity.id);
+        }
+        _ = self.entities.remove(entity.id);
     }
 };
 
@@ -102,17 +216,17 @@ pub const Chunk = struct {
 
 // Consolidated World with chunking
 pub const ChunkedWorld = struct {
-    archetypes: std.ArrayList(Archetype),
-    entityToArchetype: std.AutoHashMap(u64, usize),
+    entity_manager: EntityManager,
     chunks: std.AutoHashMap(ChunkCoord, Chunk),
     chunk_size: i32,
     allocator: std.mem.Allocator,
     camera_entity: Entity,
 
     pub fn init(allocator: std.mem.Allocator, chunk_size: i32) !ChunkedWorld {
+        const entity_manager = EntityManager.init(allocator);
+
         var chunked_world = ChunkedWorld{
-            .archetypes = std.ArrayList(Archetype).init(allocator),
-            .entityToArchetype = std.AutoHashMap(u64, usize).init(allocator),
+            .entity_manager = entity_manager,
             .chunks = std.AutoHashMap(ChunkCoord, Chunk).init(allocator),
             .chunk_size = chunk_size,
             .allocator = allocator,
@@ -126,11 +240,7 @@ pub const ChunkedWorld = struct {
     }
 
     pub fn deinit(self: *ChunkedWorld) void {
-        for (self.archetypes.items) |*archetype| {
-            archetype.deinit();
-        }
-        self.archetypes.deinit();
-        self.entityToArchetype.deinit();
+        self.entity_manager.deinit();
 
         var iter = self.chunks.valueIterator();
         while (iter.next()) |chunk| {
@@ -188,17 +298,10 @@ pub const ChunkedWorld = struct {
     }
 
     pub fn createEntity(self: *ChunkedWorld, position: Position, renderable: Renderable) !Entity {
-        const entity = Entity{ .id = std.crypto.random.int(u64) };
+        const entity = try self.entity_manager.createEntity();
 
-        // Add entity to the archetype-based system
-        if (self.archetypes.items.len == 0) {
-            const archetype = Archetype.init(self.allocator, 1);
-            try self.archetypes.append(archetype);
-        }
-
-        const archetype_index = 0;
-        try self.archetypes.items[archetype_index].addEntity(entity, position, renderable);
-        try self.entityToArchetype.put(entity.id, archetype_index);
+        try self.entity_manager.addComponent(entity, position);
+        try self.entity_manager.addComponent(entity, renderable);
 
         // Assign to chunk based on position
         try self.assignToChunk(entity, position);
@@ -207,37 +310,20 @@ pub const ChunkedWorld = struct {
     }
 
     pub fn addCamera(self: *ChunkedWorld, entity: Entity, camera: Camera) !void {
-        if (self.entityToArchetype.get(entity.id)) |archetype_index| {
-            try self.archetypes.items[archetype_index].addCamera(entity, camera);
-        }
+        try self.entity_manager.addComponent(entity, camera);
     }
 
     pub fn getComponent(self: ChunkedWorld, comptime T: type, entity: Entity) ?T {
-        if (self.entityToArchetype.get(entity.id)) |archetype_index| {
-            const archetype = self.archetypes.items[archetype_index];
-            if (archetype.getEntityIndex(entity.id)) |entity_index| {
-                return switch (T) {
-                    Position => archetype.positions.items[entity_index],
-                    Renderable => archetype.renderables.items[entity_index],
-                    Camera => archetype.cameras.items[entity_index],
-                    else => @compileError("Unsupported component type"),
-                };
-            }
-        }
-        return null;
+        return self.entity_manager.getComponent(T, entity);
     }
 
     pub fn setComponent(self: *ChunkedWorld, comptime T: type, entity: Entity, component: T) !void {
-        if (self.entityToArchetype.get(entity.id)) |archetype_index| {
-            const archetype = &self.archetypes.items[archetype_index];
-            if (archetype.getEntityIndex(entity.id)) |entity_index| {
-                switch (T) {
-                    Position => archetype.positions.items[entity_index] = component,
-                    Renderable => archetype.renderables.items[entity_index] = component,
-                    Camera => archetype.cameras.items[entity_index] = component,
-                    else => @compileError("Unsupported component type"),
-                }
-            }
+        try self.entity_manager.setComponent(entity, component);
+
+        // Update chunk assignment if this is a position component
+        if (T == Position) {
+            // TODO: Handle moving entities between chunks when their position changes
+            // This would require removing from current chunk and adding to new chunk
         }
     }
 
@@ -291,14 +377,9 @@ pub const ChunkedWorld = struct {
     }
 
     pub fn withComponents(self: ChunkedWorld, entity: Entity, comptime callback: anytype) error{ComponentNotFound}!void {
-        // Get entity archetype and index directly
-        const archetype_index = self.entityToArchetype.get(entity.id) orelse return error.ComponentNotFound;
-        const archetype = &self.archetypes.items[archetype_index];
-        const entity_index = archetype.getEntityIndex(entity.id) orelse return error.ComponentNotFound;
-
-        const position = archetype.positions.items[entity_index];
-        const renderable = archetype.renderables.items[entity_index] orelse return error.ComponentNotFound;
-        const camera = archetype.cameras.items[entity_index];
+        const position = self.entity_manager.getComponent(Position, entity) orelse return error.ComponentNotFound;
+        const renderable = self.entity_manager.getComponent(Renderable, entity) orelse return error.ComponentNotFound;
+        const camera = self.entity_manager.getComponent(Camera, entity);
 
         return callback(position, renderable, camera);
     }
