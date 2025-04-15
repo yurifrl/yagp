@@ -33,6 +33,7 @@ pub const Archetype = struct {
     positions: std.ArrayList(Position),
     renderables: std.ArrayList(?Renderable),
     cameras: std.ArrayList(?Camera),
+    entityToIndex: std.AutoHashMap(u64, usize),
 
     pub fn init(allocator: std.mem.Allocator, id: ArchetypeId) Archetype {
         return Archetype{
@@ -41,6 +42,7 @@ pub const Archetype = struct {
             .positions = std.ArrayList(Position).init(allocator),
             .renderables = std.ArrayList(?Renderable).init(allocator),
             .cameras = std.ArrayList(?Camera).init(allocator),
+            .entityToIndex = std.AutoHashMap(u64, usize).init(allocator),
         };
     }
 
@@ -49,9 +51,12 @@ pub const Archetype = struct {
         self.positions.deinit();
         self.renderables.deinit();
         self.cameras.deinit();
+        self.entityToIndex.deinit();
     }
 
     pub fn addEntity(self: *Archetype, entity: Entity, position: Position, renderable: Renderable) !void {
+        const index = self.entities.items.len;
+        try self.entityToIndex.put(entity.id, index);
         try self.entities.append(entity);
         try self.positions.append(position);
         try self.renderables.append(renderable);
@@ -65,10 +70,7 @@ pub const Archetype = struct {
     }
 
     pub fn getEntityIndex(self: Archetype, entity_id: u64) ?usize {
-        for (self.entities.items, 0..) |e, i| {
-            if (e.id == entity_id) return i;
-        }
-        return null;
+        return self.entityToIndex.get(entity_id);
     }
 };
 
