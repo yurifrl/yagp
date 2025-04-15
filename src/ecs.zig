@@ -74,75 +74,6 @@ pub const Archetype = struct {
     }
 };
 
-// World with pure component storage
-pub const World = struct {
-    archetypes: std.ArrayList(Archetype),
-    entityToArchetype: std.AutoHashMap(u64, usize),
-    allocator: std.mem.Allocator,
-
-    pub fn init(allocator: std.mem.Allocator) World {
-        return World{
-            .archetypes = std.ArrayList(Archetype).init(allocator),
-            .entityToArchetype = std.AutoHashMap(u64, usize).init(allocator),
-            .allocator = allocator,
-        };
-    }
-
-    pub fn deinit(self: *World) void {
-        for (self.archetypes.items) |*archetype| {
-            archetype.deinit();
-        }
-        self.archetypes.deinit();
-        self.entityToArchetype.deinit();
-    }
-
-    pub fn createEntity(self: *World, entity: Entity, position: Position, renderable: Renderable) !void {
-        if (self.archetypes.items.len == 0) {
-            const archetype = Archetype.init(self.allocator, 1);
-            try self.archetypes.append(archetype);
-        }
-
-        const archetype_index = 0;
-        try self.archetypes.items[archetype_index].addEntity(entity, position, renderable);
-        try self.entityToArchetype.put(entity.id, archetype_index);
-    }
-
-    pub fn addCamera(self: *World, entity: Entity, camera: Camera) !void {
-        if (self.entityToArchetype.get(entity.id)) |archetype_index| {
-            try self.archetypes.items[archetype_index].addCamera(entity, camera);
-        }
-    }
-
-    pub fn setComponent(self: *World, comptime T: type, entity: Entity, component: T) !void {
-        if (self.entityToArchetype.get(entity.id)) |archetype_index| {
-            const archetype = &self.archetypes.items[archetype_index];
-            if (archetype.getEntityIndex(entity.id)) |entity_index| {
-                switch (T) {
-                    Position => archetype.positions.items[entity_index] = component,
-                    Renderable => archetype.renderables.items[entity_index] = component,
-                    Camera => archetype.cameras.items[entity_index] = component,
-                    else => @compileError("Unsupported component type"),
-                }
-            }
-        }
-    }
-
-    pub fn getComponent(self: World, comptime T: type, entity: Entity) ?T {
-        if (self.entityToArchetype.get(entity.id)) |archetype_index| {
-            const archetype = self.archetypes.items[archetype_index];
-            if (archetype.getEntityIndex(entity.id)) |entity_index| {
-                return switch (T) {
-                    Position => archetype.positions.items[entity_index],
-                    Renderable => archetype.renderables.items[entity_index],
-                    Camera => archetype.cameras.items[entity_index],
-                    else => @compileError("Unsupported component type"),
-                };
-            }
-        }
-        return null;
-    }
-};
-
 // Chunking System
 pub const ChunkCoord = struct {
     x: i32,
@@ -169,9 +100,10 @@ pub const Chunk = struct {
     }
 };
 
-// Chunked World without raylib dependencies
+// Consolidated World with chunking
 pub const ChunkedWorld = struct {
-    world: World,
+    archetypes: std.ArrayList(Archetype),
+    entityToArchetype: std.AutoHashMap(u64, usize),
     chunks: std.AutoHashMap(ChunkCoord, Chunk),
     chunk_size: i32,
     allocator: std.mem.Allocator,
@@ -179,7 +111,8 @@ pub const ChunkedWorld = struct {
 
     pub fn init(allocator: std.mem.Allocator, chunk_size: i32) !ChunkedWorld {
         var chunked_world = ChunkedWorld{
-            .world = World.init(allocator),
+            .archetypes = std.ArrayList(Archetype).init(allocator),
+            .entityToArchetype = std.AutoHashMap(u64, usize).init(allocator),
             .chunks = std.AutoHashMap(ChunkCoord, Chunk).init(allocator),
             .chunk_size = chunk_size,
             .allocator = allocator,
@@ -193,7 +126,11 @@ pub const ChunkedWorld = struct {
     }
 
     pub fn deinit(self: *ChunkedWorld) void {
-        self.world.deinit();
+        for (self.archetypes.items) |*archetype| {
+            archetype.deinit();
+        }
+        self.archetypes.deinit();
+        self.entityToArchetype.deinit();
 
         var iter = self.chunks.valueIterator();
         while (iter.next()) |chunk| {
@@ -225,7 +162,7 @@ pub const ChunkedWorld = struct {
             .drag_start = rl.Vector2{ .x = 0, .y = 0 },
         };
 
-        try self.world.addCamera(camera_entity, camera_component);
+        try self.addCamera(camera_entity, camera_component);
         return camera_entity;
     }
 
@@ -253,8 +190,15 @@ pub const ChunkedWorld = struct {
     pub fn createEntity(self: *ChunkedWorld, position: Position, renderable: Renderable) !Entity {
         const entity = Entity{ .id = std.crypto.random.int(u64) };
 
-        // Add entity to the archetype-based world
-        try self.world.createEntity(entity, position, renderable);
+        // Add entity to the archetype-based system
+        if (self.archetypes.items.len == 0) {
+            const archetype = Archetype.init(self.allocator, 1);
+            try self.archetypes.append(archetype);
+        }
+
+        const archetype_index = 0;
+        try self.archetypes.items[archetype_index].addEntity(entity, position, renderable);
+        try self.entityToArchetype.put(entity.id, archetype_index);
 
         // Assign to chunk based on position
         try self.assignToChunk(entity, position);
@@ -262,11 +206,38 @@ pub const ChunkedWorld = struct {
         return entity;
     }
 
+    pub fn addCamera(self: *ChunkedWorld, entity: Entity, camera: Camera) !void {
+        if (self.entityToArchetype.get(entity.id)) |archetype_index| {
+            try self.archetypes.items[archetype_index].addCamera(entity, camera);
+        }
+    }
+
     pub fn getComponent(self: ChunkedWorld, comptime T: type, entity: Entity) ?T {
-        return self.world.getComponent(T, entity);
+        if (self.entityToArchetype.get(entity.id)) |archetype_index| {
+            const archetype = self.archetypes.items[archetype_index];
+            if (archetype.getEntityIndex(entity.id)) |entity_index| {
+                return switch (T) {
+                    Position => archetype.positions.items[entity_index],
+                    Renderable => archetype.renderables.items[entity_index],
+                    Camera => archetype.cameras.items[entity_index],
+                    else => @compileError("Unsupported component type"),
+                };
+            }
+        }
+        return null;
     }
 
     pub fn setComponent(self: *ChunkedWorld, comptime T: type, entity: Entity, component: T) !void {
-        return try self.world.setComponent(T, entity, component);
+        if (self.entityToArchetype.get(entity.id)) |archetype_index| {
+            const archetype = &self.archetypes.items[archetype_index];
+            if (archetype.getEntityIndex(entity.id)) |entity_index| {
+                switch (T) {
+                    Position => archetype.positions.items[entity_index] = component,
+                    Renderable => archetype.renderables.items[entity_index] = component,
+                    Camera => archetype.cameras.items[entity_index] = component,
+                    else => @compileError("Unsupported component type"),
+                }
+            }
+        }
     }
 };
