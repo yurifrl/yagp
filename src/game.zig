@@ -39,11 +39,6 @@ pub const Game = struct {
     pub fn update(self: *Game) !void {
         camera.updateSystem(&self.camera_component);
 
-        // Log visible chunks when L key is pressed
-        if (rl.isKeyPressed(.l)) {
-            debugger.logVisibleChunks(self.chunked_world, self.camera_entity);
-        }
-
         // Update the component in the world with our local copy
         try self.chunked_world.setComponent(Camera, self.camera_entity, self.camera_component);
     }

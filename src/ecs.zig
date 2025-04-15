@@ -272,7 +272,7 @@ pub const ChunkedWorld = struct {
             .drag_start = rl.Vector2{ .x = 0, .y = 0 },
         };
 
-        try self.addCamera(camera_entity, camera_component);
+        try self.entity_manager.addComponent(camera_entity, camera_component);
         return camera_entity;
     }
 
@@ -307,10 +307,6 @@ pub const ChunkedWorld = struct {
         try self.assignToChunk(entity, position);
 
         return entity;
-    }
-
-    pub fn addCamera(self: *ChunkedWorld, entity: Entity, camera: Camera) !void {
-        try self.entity_manager.addComponent(entity, camera);
     }
 
     pub fn getComponent(self: ChunkedWorld, comptime T: type, entity: Entity) ?T {

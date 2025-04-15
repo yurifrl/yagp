@@ -122,31 +122,3 @@ pub fn render() void {
         i += 1;
     }
 }
-
-// Log chunks currently in view
-pub fn logVisibleChunks(chunked_world: @import("ecs.zig").ChunkedWorld, camera_entity: @import("ecs.zig").Entity) void {
-    if (!initialized) return;
-
-    // Use the utility function for visibility calculation
-    const visibility_result = chunked_world.getVisibleChunks(camera_entity) catch return;
-    defer visibility_result.visible_chunks.deinit();
-
-    // Extract boundaries from result
-    const start_x = @divFloor(@as(i32, @intFromFloat(visibility_result.top_left.x)), chunked_world.chunk_size);
-    const end_x = @divFloor(@as(i32, @intFromFloat(visibility_result.bottom_right.x)), chunked_world.chunk_size) + 1;
-    const start_y = @divFloor(@as(i32, @intFromFloat(visibility_result.top_left.y)), chunked_world.chunk_size);
-    const end_y = @divFloor(@as(i32, @intFromFloat(visibility_result.bottom_right.y)), chunked_world.chunk_size) + 1;
-
-    // Count visible chunks
-    const visible_count = visibility_result.visible_chunks.items.len;
-    var existing_count: usize = 0;
-
-    // Check how many visible chunks actually exist
-    for (visibility_result.visible_chunks.items) |coord| {
-        if (chunked_world.chunks.contains(coord)) {
-            existing_count += 1;
-        }
-    }
-
-    logFmt("Visible chunks: {d} ({d} loaded) from ({}, {}) to ({}, {})", .{ visible_count, existing_count, start_x, start_y, end_x, end_y });
-}
