@@ -71,6 +71,30 @@ pub fn main() anyerror!void {
     // Load buttons
     ui_system.loadButtons(&buttons);
 
+    // Create world inspector
+    const inspector = try ui_system.addInspector("World Inspector", 10, 30, 250, 400);
+
+    // Add game structure to inspector
+    const entities_node = try inspector.addNode("Entities");
+
+    // Add entity information
+    const entity1 = try entities_node.addChild("RedSquare");
+    _ = try entity1.addChild("Position");
+    _ = try entity1.addChild("Renderable");
+
+    // Add game info
+    const game_info = try inspector.addNode("Game");
+    _ = try game_info.addChild("Chunk Size: 100px");
+
+    // Add system info
+    const system_info = try inspector.addNode("System");
+    _ = try system_info.addChild("FPS");
+    _ = try system_info.addChild("Memory");
+
+    // Add debug info
+    const debug_info = try inspector.addNode("Debug");
+    _ = try debug_info.addChild("Messages");
+
     // Create a red square entity
     _ = try g.createEntity(game.Position{ .x = @floatFromInt(screenWidth / 2 - 25), .y = @floatFromInt(screenHeight / 2 - 25) }, game.Renderable{
         .color = rl.Color{ .r = 255, .g = 0, .b = 0, .a = 255 },
