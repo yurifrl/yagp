@@ -5,6 +5,7 @@ const builtin = @import("builtin");
 const game = @import("game.zig");
 const debugger = @import("debugger.zig");
 const ui = @import("ui.zig");
+const ecs = @import("ecs.zig");
 
 // Constants
 const is_wasm = builtin.target.os.tag == .emscripten;
@@ -71,29 +72,8 @@ pub fn main() anyerror!void {
     // Load buttons
     ui_system.loadButtons(&buttons);
 
-    // Create world inspector
-    const inspector = try ui_system.addInspector("World Inspector", 10, 30, 250, 400);
-
-    // Add game structure to inspector
-    const entities_node = try inspector.addNode("Entities");
-
-    // Add entity information
-    const entity1 = try entities_node.addChild("RedSquare");
-    _ = try entity1.addChild("Position");
-    _ = try entity1.addChild("Renderable");
-
-    // Add game info
-    const game_info = try inspector.addNode("Game");
-    _ = try game_info.addChild("Chunk Size: 100px");
-
-    // Add system info
-    const system_info = try inspector.addNode("System");
-    _ = try system_info.addChild("FPS");
-    _ = try system_info.addChild("Memory");
-
-    // Add debug info
-    const debug_info = try inspector.addNode("Debug");
-    _ = try debug_info.addChild("Messages");
+    // Initialize inspector in debugger
+    // try debugger.initInspector(10, 30, 250, 400);
 
     // Create a red square entity
     _ = try g.createEntity(game.Position{ .x = @floatFromInt(screenWidth / 2 - 25), .y = @floatFromInt(screenHeight / 2 - 25) }, game.Renderable{
@@ -107,6 +87,9 @@ pub fn main() anyerror!void {
     while (!rl.windowShouldClose()) {
         // Update game
         try g.update();
+
+        // Update inspector with current entity data
+        // debugger.updateInspector(&g) catch {};
 
         rl.beginDrawing();
         defer rl.endDrawing();
@@ -124,7 +107,7 @@ pub fn main() anyerror!void {
             debugger.logFmt("Button clicked: {s}", .{button_id});
         }
 
-        // Render debug messages
+        // Render debug messages (also renders inspector)
         debugger.render();
 
         // Display some debug info

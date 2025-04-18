@@ -68,27 +68,22 @@ pub const Game = struct {
         const start_y = @divFloor(@as(i32, @intFromFloat(visibility_result.top_left.y)), self.chunked_world.chunk_size) * self.chunked_world.chunk_size;
         const end_y = @divFloor(@as(i32, @intFromFloat(visibility_result.bottom_right.y)), self.chunked_world.chunk_size) * self.chunked_world.chunk_size + self.chunked_world.chunk_size * 2;
 
+        // Render grid
         renderGrid(start_x, end_x, start_y, end_y, chunk_size_f);
-        self.renderChunks(visibility_result.top_left, visibility_result.bottom_right, chunk_size_f);
-    }
 
-    fn renderChunks(self: Game, top_left: rl.Vector2, bottom_right: rl.Vector2, chunk_size_f: f32) void {
+        // Render chunks
         const chunk_coord_color = rl.Color{ .r = 180, .g = 180, .b = 180, .a = 255 };
-        var chunk_iter = self.chunked_world.chunks.iterator();
-        while (chunk_iter.next()) |entry| {
-            const chunk = entry.value_ptr.*;
 
-            // Check visibility using the utility function
-            if (!self.chunked_world.isChunkVisible(chunk.coord, top_left, bottom_right)) {
-                continue;
+        // Iterate only over visible chunks
+        for (visibility_result.visible_chunks.items) |coord| {
+            if (self.chunked_world.chunks.get(coord)) |chunk| {
+                // Calculate chunk position in world coordinates
+                const chunk_world_x = @as(f32, @floatFromInt(chunk.coord.x * self.chunked_world.chunk_size));
+                const chunk_world_y = @as(f32, @floatFromInt(chunk.coord.y * self.chunked_world.chunk_size));
+
+                self.renderChunkCoordinates(chunk, chunk_world_x, chunk_world_y, chunk_size_f, chunk_coord_color);
+                renderEntities(self.chunked_world, chunk);
             }
-
-            // Calculate chunk position in world coordinates
-            const chunk_world_x = @as(f32, @floatFromInt(chunk.coord.x * self.chunked_world.chunk_size));
-            const chunk_world_y = @as(f32, @floatFromInt(chunk.coord.y * self.chunked_world.chunk_size));
-
-            self.renderChunkCoordinates(chunk, chunk_world_x, chunk_world_y, chunk_size_f, chunk_coord_color);
-            renderEntities(self.chunked_world, chunk);
         }
     }
 

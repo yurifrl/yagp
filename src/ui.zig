@@ -291,11 +291,14 @@ pub const Frame = struct {
 pub const TreeNode = struct {
     label: []const u8,
     children: std.ArrayList(TreeNode),
+    allocator: std.mem.Allocator,
 
-    pub fn init(allocator: std.mem.Allocator, label: []const u8) TreeNode {
+    pub fn init(allocator: std.mem.Allocator, label: []const u8) !TreeNode {
+        const label_copy = try allocator.dupe(u8, label);
         return .{
-            .label = label,
+            .label = label_copy,
             .children = std.ArrayList(TreeNode).init(allocator),
+            .allocator = allocator,
         };
     }
 
@@ -303,12 +306,13 @@ pub const TreeNode = struct {
         for (self.children.items) |*child| {
             child.deinit();
         }
+        self.allocator.free(self.label);
         self.children.deinit();
     }
 
     pub fn addChild(self: *TreeNode, label: []const u8) !*TreeNode {
         const child = try self.children.addOne();
-        child.* = TreeNode.init(self.children.allocator, label);
+        child.* = try TreeNode.init(self.children.allocator, label);
         return child;
     }
 };
@@ -388,19 +392,17 @@ pub const Inspector = struct {
                 var child_label_buffer: [512]u8 = undefined;
 
                 if (is_last) {
-                    // Last item - use └── prefix
-                    const branch_prefix = std.fmt.bufPrintZ(&prefix_buffer, "{s}└── ", .{prefix}) catch continue;
+                    // Last item - use simple ASCII instead of └──
+                    const branch_prefix = std.fmt.bufPrintZ(&prefix_buffer, "{s}+-- ", .{prefix}) catch continue;
                     const new_prefix = std.fmt.bufPrintZ(&child_label_buffer, "{s}    ", .{prefix}) catch continue;
 
                     // Draw branch prefix
                     rl.drawText(branch_prefix, x, current_y, self.font_size, self.text_color);
 
                     // Draw child label after the branch
-                    const child_label = self.allocator.dupeZ(u8, child.label) catch continue;
-                    defer self.allocator.free(child_label);
-
+                    const child_label_z = std.fmt.bufPrintZ(&child_label_buffer, "{s}", .{child.label}) catch continue;
                     const prefix_width = rl.measureText(branch_prefix, self.font_size);
-                    rl.drawText(child_label, x + prefix_width, current_y, self.font_size, self.text_color);
+                    rl.drawText(child_label_z, x + prefix_width, current_y, self.font_size, self.text_color);
                     current_y += self.line_height;
 
                     // Recursively draw grandchildren
@@ -408,19 +410,17 @@ pub const Inspector = struct {
                         current_y = self.renderNode(child, x, current_y, new_prefix);
                     }
                 } else {
-                    // Middle item - use ├── prefix
-                    const branch_prefix = std.fmt.bufPrintZ(&prefix_buffer, "{s}├── ", .{prefix}) catch continue;
-                    const new_prefix = std.fmt.bufPrintZ(&child_label_buffer, "{s}│   ", .{prefix}) catch continue;
+                    // Middle item - use simple ASCII instead of ├── and │
+                    const branch_prefix = std.fmt.bufPrintZ(&prefix_buffer, "{s}+-- ", .{prefix}) catch continue;
+                    const new_prefix = std.fmt.bufPrintZ(&child_label_buffer, "{s}|   ", .{prefix}) catch continue;
 
                     // Draw branch prefix
                     rl.drawText(branch_prefix, x, current_y, self.font_size, self.text_color);
 
                     // Draw child label after the branch
-                    const child_label = self.allocator.dupeZ(u8, child.label) catch continue;
-                    defer self.allocator.free(child_label);
-
+                    const child_label_z = std.fmt.bufPrintZ(&child_label_buffer, "{s}", .{child.label}) catch continue;
                     const prefix_width = rl.measureText(branch_prefix, self.font_size);
-                    rl.drawText(child_label, x + prefix_width, current_y, self.font_size, self.text_color);
+                    rl.drawText(child_label_z, x + prefix_width, current_y, self.font_size, self.text_color);
                     current_y += self.line_height;
 
                     // Recursively draw grandchildren
@@ -436,7 +436,7 @@ pub const Inspector = struct {
 
     pub fn addNode(self: *Inspector, label: []const u8) !*TreeNode {
         const node = try self.nodes.addOne();
-        node.* = TreeNode.init(self.allocator, label);
+        node.* = try TreeNode.init(self.allocator, label);
         return node;
     }
 };
