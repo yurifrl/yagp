@@ -3,10 +3,11 @@ const rl = @import("raylib");
 const builtin = @import("builtin");
 
 const game = @import("game.zig");
-const debugger = @import("debugger.zig");
-const ui = @import("ui.zig");
+// const debugger = @import("debugger.zig");
+// const ui = @import("ui.zig");
 
 const is_wasm = builtin.target.os.tag == .emscripten;
+// const is_wasm = true;
 
 pub fn main() anyerror!void {
     if (is_wasm) {
@@ -22,49 +23,49 @@ pub fn main() anyerror!void {
     rl.setTargetFPS(60);
 
     // Initialize our game with page allocator (WebAssembly compatible)
-    const allocator = std.heap.page_allocator;
-
+    // const allocator = std.heap.page_allocator;
+    const allocator = if (is_wasm) std.heap.wasm_allocator else std.heap.page_allocator;
     // Initialize debugger
-    debugger.init(allocator);
-    defer debugger.deinit();
+    // debugger.init(allocator);
+    // defer debugger.deinit();
 
     var g = try game.Game.init(allocator, 100); // 100x100 pixel chunks
     defer g.deinit();
 
     // Initialize UI
-    var ui_system = ui.UI.init(allocator);
-    defer ui_system.deinit();
+    // var ui_system = ui.UI.init(allocator);
+    // defer ui_system.deinit();
 
-    // Add a frame to the UI
-    _ = ui_system.addFrame()
-        .setMargin(1.0)
-        .setThickness(0.5)
-        .setColor(rl.Color{ .r = 200, .g = 200, .b = 200, .a = 255 });
+    // // Add a frame to the UI
+    // _ = ui_system.addFrame()
+    //     .setMargin(1.0)
+    //     .setThickness(0.5)
+    //     .setColor(rl.Color{ .r = 200, .g = 200, .b = 200, .a = 255 });
 
-    // Initialize a dynamic bar
-    ui_system.initDynamicBar(15.0, 10.0, 5.0); // 15mm height, 10mm buttons, 2mm spacing
+    // // Initialize a dynamic bar
+    // ui_system.initDynamicBar(15.0, 10.0, 5.0); // 15mm height, 10mm buttons, 2mm spacing
 
-    // Define buttons
-    const buttons = [_]ui.UI.BarItem{
-        .{
-            .id = "residential",
-            .label = "Residential",
-            .color = rl.Color{ .r = 100, .g = 100, .b = 200, .a = 255 },
-        },
-        .{
-            .id = "commercial",
-            .label = "Commercial",
-            .color = rl.Color{ .r = 200, .g = 100, .b = 100, .a = 255 },
-        },
-        .{
-            .id = "industrial",
-            .label = "Industrial",
-            .color = rl.Color{ .r = 100, .g = 200, .b = 100, .a = 255 },
-        },
-    };
+    // // Define buttons
+    // const buttons = [_]ui.UI.BarItem{
+    //     .{
+    //         .id = "residential",
+    //         .label = "Residential",
+    //         .color = rl.Color{ .r = 100, .g = 100, .b = 200, .a = 255 },
+    //     },
+    //     .{
+    //         .id = "commercial",
+    //         .label = "Commercial",
+    //         .color = rl.Color{ .r = 200, .g = 100, .b = 100, .a = 255 },
+    //     },
+    //     .{
+    //         .id = "industrial",
+    //         .label = "Industrial",
+    //         .color = rl.Color{ .r = 100, .g = 200, .b = 100, .a = 255 },
+    //     },
+    // };
 
-    // Load buttons
-    ui_system.loadButtons(&buttons);
+    // // Load buttons
+    // ui_system.loadButtons(&buttons);
 
     // Create a red square entity
     _ = try g.createEntity(game.Position{ .x = @floatFromInt(screenWidth / 2 - 25), .y = @floatFromInt(screenHeight / 2 - 25) }, game.Renderable{
@@ -74,8 +75,8 @@ pub fn main() anyerror!void {
         .shape = .Rectangle,
     });
 
-    // Add a debug message
-    debugger.log("Game initialized");
+    // // Add a debug message
+    // debugger.log("Game initialized");
 
     // Main game loop
     while (!rl.windowShouldClose()) {
@@ -91,15 +92,15 @@ pub fn main() anyerror!void {
         g.render();
 
         // Render UI on top
-        ui_system.render();
+        // ui_system.render();
 
-        // Check for button clicks
-        if (ui_system.getClickedButton()) |button_id| {
-            debugger.logFmt("Button clicked: {s}", .{button_id});
-        }
+        // // Check for button clicks
+        // if (ui_system.getClickedButton()) |button_id| {
+        //     debugger.logFmt("Button clicked: {s}", .{button_id});
+        // }
 
-        // Render debug messages
-        debugger.render();
+        // // Render debug messages
+        // debugger.render();
 
         // Display some debug info
         rl.drawFPS(10, 10);

@@ -44,6 +44,10 @@
             .url = "git+https://github.com/karlseguin/http.zig?ref=master#c16f21ebfc6d2896d50631cdc3ab6b4ece729361",
             .hash = "httpz-0.0.0-PNVzrGu3BgBqTTlJulQxL7nOo3ljwA5MvtGpQ2L0GkHE",
         },
+        .zemscripten = .{
+            .url = "https://github.com/zig-gamedev/zemscripten/archive/refs/heads/main.tar.gz",
+            .hash = "zemscripten-0.2.0-dev-sRlDqBtLAADUk3IZprWI0srnchHAXRSQu1n4wZiRvXmr",
+        },
     },
     .paths = .{
         "build.zig",

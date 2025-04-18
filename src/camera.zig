@@ -1,7 +1,7 @@
 const std = @import("std");
 const rl = @import("raylib");
 const ecs = @import("ecs.zig");
-const debugger = @import("debugger.zig");
+// const debugger = @import("debugger.zig");
 
 pub const Camera = struct {
     offset: rl.Vector2,
@@ -29,7 +29,7 @@ pub fn updateSystem(camera: *Camera) void {
     if (rl.isMouseButtonPressed(.left)) {
         camera.is_dragging = true;
         camera.drag_start = mouse_pos;
-        debugger.logFmt("Camera drag started at ({d:.1}, {d:.1})", .{ mouse_pos.x, mouse_pos.y });
+        // debugger.logFmt("Camera drag started at ({d:.1}, {d:.1})", .{ mouse_pos.x, mouse_pos.y });
     }
 
     if (rl.isMouseButtonDown(.left) and camera.is_dragging) {
@@ -46,7 +46,7 @@ pub fn updateSystem(camera: *Camera) void {
 
     if (rl.isMouseButtonReleased(.left)) {
         camera.is_dragging = false;
-        debugger.logFmt("Camera position: ({d:.1}, {d:.1})", .{ camera.target.x, camera.target.y });
+        // debugger.logFmt("Camera position: ({d:.1}, {d:.1})", .{ camera.target.x, camera.target.y });
     }
 
     // Handle zoom with mouse wheel

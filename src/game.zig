@@ -1,7 +1,7 @@
 const std = @import("std");
 const rl = @import("raylib");
 const ecs = @import("ecs.zig");
-const debugger = @import("debugger.zig");
+// const debugger = @import("debugger.zig");
 const camera = @import("camera.zig");
 
 // Re-export core types for backwards compatibility
