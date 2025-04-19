@@ -24,6 +24,18 @@ pub const Renderable = struct {
     texture_id: ?u32 = null,
 };
 
+// Chunking System
+pub const ChunkCoord = struct {
+    x: i32,
+    y: i32,
+};
+
+pub const VisibleChunksData = struct {
+    top_left: rl.Vector2,
+    bottom_right: rl.Vector2,
+    visible_chunks: std.ArrayList(ChunkCoord),
+};
+
 // Component storage interface with type erasure
 pub const ComponentStorageInterface = struct {
     ptr: *anyopaque,
@@ -188,12 +200,6 @@ pub const EntityManager = struct {
     }
 };
 
-// Chunking System
-pub const ChunkCoord = struct {
-    x: i32,
-    y: i32,
-};
-
 pub const Chunk = struct {
     coord: ChunkCoord,
     entities: std.ArrayList(Entity),
@@ -213,13 +219,6 @@ pub const Chunk = struct {
         return self.entities.items;
     }
 };
-
-pub const VisibleChunksData = struct {
-    top_left: rl.Vector2,
-    bottom_right: rl.Vector2,
-    visible_chunks: std.ArrayList(ChunkCoord),
-};
-
 // Consolidated World with chunking
 pub const ChunkedWorld = struct {
     entity_manager: EntityManager,
@@ -282,35 +281,26 @@ pub const ChunkedWorld = struct {
         return camera_entity;
     }
 
-    pub fn getChunkCoord(self: ChunkedWorld, pos: Position) ChunkCoord {
-        return ChunkCoord{
-            .x = @divFloor(@as(i32, @intFromFloat(pos.x)), self.chunk_size),
-            .y = @divFloor(@as(i32, @intFromFloat(pos.y)), self.chunk_size),
-        };
-    }
-
-    pub fn getOrCreateChunk(self: *ChunkedWorld, coord: ChunkCoord) !*Chunk {
-        const result = try self.chunks.getOrPut(coord);
-        if (!result.found_existing) {
-            result.value_ptr.* = Chunk.init(self.allocator, coord);
-        }
-        return result.value_ptr;
-    }
-
-    pub fn assignToChunk(self: *ChunkedWorld, entity: Entity, pos: Position) !void {
-        const coord = self.getChunkCoord(pos);
-        const chunk = try self.getOrCreateChunk(coord);
-        try chunk.entities.append(entity);
-    }
-
     pub fn createEntity(self: *ChunkedWorld, position: Position, renderable: Renderable) !Entity {
         const entity = try self.entity_manager.createEntity();
 
         try self.entity_manager.addComponent(entity, position);
         try self.entity_manager.addComponent(entity, renderable);
 
-        // Assign to chunk based on position
-        try self.assignToChunk(entity, position);
+        // Calculate chunk coordinates from position
+        const coord = ChunkCoord{
+            .x = @divFloor(@as(i32, @intFromFloat(position.x)), self.chunk_size),
+            .y = @divFloor(@as(i32, @intFromFloat(position.y)), self.chunk_size),
+        };
+
+        // Get or create the chunk
+        const result = try self.chunks.getOrPut(coord);
+        if (!result.found_existing) {
+            result.value_ptr.* = Chunk.init(self.allocator, coord);
+        }
+
+        // Add entity to chunk
+        try result.value_ptr.entities.append(entity);
 
         return entity;
     }
@@ -331,7 +321,7 @@ pub const ChunkedWorld = struct {
 
     pub fn getVisibleChunks(self: ChunkedWorld, camera_entity: Entity, screen_width: i32, screen_height: i32) !VisibleChunksData {
         var result = std.ArrayList(ChunkCoord).init(self.allocator);
-        const camera_comp = self.getComponent(Camera, camera_entity) orelse return error.CameraNotFound;
+        const camera_comp = self.entity_manager.getComponent(Camera, camera_entity) orelse return error.CameraNotFound;
 
         // Get screen bounds in world coordinates
         const bounds = camera_mod.getScreenBoundsWorld(camera_comp, screen_width, screen_height);
