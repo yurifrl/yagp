@@ -68,20 +68,17 @@ pub const Game = struct {
         try self.chunked_world.setComponent(Camera, self.camera_entity, self.camera_component);
     }
 
-    pub fn render(self: Game) void {
-        self.renderWorld();
+    pub fn render(self: Game) !void {
+        try self.renderWorld();
     }
 
-    fn renderWorld(self: Game) void {
+    fn renderWorld(self: Game) !void {
         // Begin 2D mode with camera
         rl.beginMode2D(self.camera_component.toRaylib());
         defer rl.endMode2D();
 
         // Get visible chunks using the utility function
-        const visibility_result = self.chunked_world.getVisibleChunks(self.camera_entity) catch {
-            // Handle error by returning early
-            return;
-        };
+        const visibility_result = try self.chunked_world.getVisibleChunks(self.camera_entity);
         defer visibility_result.visible_chunks.deinit();
 
         // Render grid

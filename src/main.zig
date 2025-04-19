@@ -97,7 +97,7 @@ pub fn main() anyerror!void {
         rl.clearBackground(.black);
 
         // Render the game world
-        g.render();
+        try g.render();
 
         // Render UI on top
         ui_system.render();
