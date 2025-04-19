@@ -85,9 +85,6 @@ pub fn main() anyerror!void {
 
     // Main game loop
     while (!rl.windowShouldClose()) {
-        // Update game
-        try g.update();
-
         // Update inspector with current entity data
         // debugger.updateInspector(&g) catch {};
 
@@ -97,7 +94,7 @@ pub fn main() anyerror!void {
         rl.clearBackground(.black);
 
         // Render the game world
-        try g.render();
+        try g.renderWorld();
 
         // Render UI on top
         ui_system.render();

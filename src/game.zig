@@ -36,28 +36,21 @@ pub const Game = struct {
         return try self.chunked_world.createEntity(position, renderable);
     }
 
-    pub fn update(self: *Game) !void {
+    pub fn renderWorld(self: *Game) !void {
         camera.updateSystem(&self.camera_component);
-
         // Update the component in the world with our local copy
         try self.chunked_world.setComponent(Camera, self.camera_entity, self.camera_component);
-    }
 
-    pub fn render(self: Game) !void {
-        try self.renderWorld();
-    }
-
-    fn renderWorld(self: Game) !void {
         // Begin 2D mode with camera
         rl.beginMode2D(self.camera_component.toRaylib());
         defer rl.endMode2D();
 
-        // Get screen dimensions
-        const screen_width = rl.getScreenWidth();
-        const screen_height = rl.getScreenHeight();
-
         // Get visible chunks using the utility function
-        const visibility_result = try self.chunked_world.getVisibleChunks(self.camera_entity, screen_width, screen_height);
+        const visibility_result = try self.chunked_world.getVisibleChunks(
+            self.camera_entity,
+            rl.getScreenWidth(),
+            rl.getScreenHeight(),
+        );
         defer visibility_result.visible_chunks.deinit();
 
         // Render grid
