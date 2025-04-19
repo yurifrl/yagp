@@ -67,3 +67,13 @@ pub fn updateSystem(camera: *Camera) void {
         camera.target.y += mouse_world_pos.y - new_mouse_world_pos.y;
     }
 }
+
+pub fn getScreenBoundsWorld(camera: Camera, screen_width: i32, screen_height: i32) struct { top_left: rl.Vector2, bottom_right: rl.Vector2 } {
+    const top_left = rl.getScreenToWorld2D(.{ .x = 0, .y = 0 }, camera.toRaylib());
+    const bottom_right = rl.getScreenToWorld2D(.{ .x = @floatFromInt(screen_width), .y = @floatFromInt(screen_height) }, camera.toRaylib());
+
+    return .{
+        .top_left = top_left,
+        .bottom_right = bottom_right,
+    };
+}

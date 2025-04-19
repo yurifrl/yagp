@@ -206,3 +206,29 @@ pub fn updateInspector(g: *game.Game) !void {
         }
     }
 }
+
+// Renders the chunk grid
+pub fn renderChunkGrid(top_left: anytype, bottom_right: anytype, chunk_size: i32) void {
+    const chunk_size_f: f32 = @floatFromInt(chunk_size);
+
+    // Calculate chunk grid boundaries
+    const start_x = @divFloor(@as(i32, @intFromFloat(top_left.x)), chunk_size) * chunk_size;
+    const end_x = @divFloor(@as(i32, @intFromFloat(bottom_right.x)), chunk_size) * chunk_size + chunk_size * 2;
+    const start_y = @divFloor(@as(i32, @intFromFloat(top_left.y)), chunk_size) * chunk_size;
+    const end_y = @divFloor(@as(i32, @intFromFloat(bottom_right.y)), chunk_size) * chunk_size + chunk_size * 2;
+
+    // Draw grid
+    const grid_color = rl.Color{ .r = 50, .g = 50, .b = 50, .a = 255 };
+
+    // Draw vertical grid lines
+    var x = @as(f32, @floatFromInt(start_x));
+    while (x < @as(f32, @floatFromInt(end_x))) : (x += chunk_size_f) {
+        rl.drawLine(@intFromFloat(x), @intFromFloat(@as(f32, @floatFromInt(start_y))), @intFromFloat(x), @intFromFloat(@as(f32, @floatFromInt(end_y))), grid_color);
+    }
+
+    // Draw horizontal grid lines
+    var y = @as(f32, @floatFromInt(start_y));
+    while (y < @as(f32, @floatFromInt(end_y))) : (y += chunk_size_f) {
+        rl.drawLine(@intFromFloat(@as(f32, @floatFromInt(start_x))), @intFromFloat(y), @intFromFloat(@as(f32, @floatFromInt(end_x))), @intFromFloat(y), grid_color);
+    }
+}
