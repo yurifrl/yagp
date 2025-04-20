@@ -1,7 +1,5 @@
 const std = @import("std");
 const rl = @import("raylib");
-const ecs = @import("ecs.zig");
-// const debugger = @import("debugger.zig");
 
 pub const Camera = struct {
     offset: rl.Vector2,
@@ -10,6 +8,17 @@ pub const Camera = struct {
     zoom: f32,
     is_dragging: bool,
     drag_start: rl.Vector2,
+
+    pub fn init(start_position: rl.Vector2) Camera {
+        return Camera{
+            .offset = rl.Vector2{ .x = 0, .y = 0 },
+            .target = start_position,
+            .rotation = 0,
+            .zoom = 1.0,
+            .is_dragging = false,
+            .drag_start = rl.Vector2{ .x = 0, .y = 0 },
+        };
+    }
 
     pub fn toRaylib(self: Camera) rl.Camera2D {
         return .{

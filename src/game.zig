@@ -16,23 +16,32 @@ pub const Game = struct {
     chunks: std.AutoHashMap(ecs.ChunkCoord, ecs.Chunk),
     chunk_size: i32,
     allocator: std.mem.Allocator,
+    camera_component: camera.Camera,
     camera_entity: Entity,
-    camera_component: Camera,
 
     pub fn init(allocator: std.mem.Allocator, chunk_size: i32) !Game {
         const entity_manager = ecs.EntityManager.init(allocator);
+        const initial_camera_position = Position{ .x = 0, .y = 0 };
 
         var game = Game{
             .entity_manager = entity_manager,
             .chunks = std.AutoHashMap(ecs.ChunkCoord, ecs.Chunk).init(allocator),
             .chunk_size = chunk_size,
             .allocator = allocator,
+            .camera_component = camera.Camera.init(initial_camera_position.toRaylib()),
             .camera_entity = Entity{ .id = 0 },
-            .camera_component = undefined,
         };
 
         // Create default camera
-        try game.InitCamera();
+        game.camera_entity = try game.createEntity(
+            initial_camera_position,
+            Renderable{
+                .color = rl.Color{ .r = 0, .g = 0, .b = 0, .a = 0 },
+                .width = 0,
+                .height = 0,
+                .shape = .Rectangle,
+            },
+        );
 
         return game;
     }
@@ -46,27 +55,6 @@ pub const Game = struct {
         }
 
         self.chunks.deinit();
-    }
-
-    pub fn InitCamera(self: *Game) !void {
-        const position = Position{ .x = 0, .y = 0 };
-        self.camera_component = Camera{
-            .offset = rl.Vector2{ .x = 0, .y = 0 },
-            .target = position.toRaylib(),
-            .rotation = 0,
-            .zoom = 1.0,
-            .is_dragging = false,
-            .drag_start = rl.Vector2{ .x = 0, .y = 0 },
-        };
-        self.camera_entity = try self.createEntity(
-            position,
-            Renderable{
-                .color = rl.Color{ .r = 0, .g = 0, .b = 0, .a = 0 },
-                .width = 0,
-                .height = 0,
-                .shape = .Rectangle,
-            },
-        );
     }
 
     pub fn createEntity(self: *Game, position: Position, renderable: Renderable) !Entity {
