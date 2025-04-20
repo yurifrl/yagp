@@ -22,14 +22,15 @@ pub const Game = struct {
     pub fn init(allocator: std.mem.Allocator, chunk_size: i32) !Game {
         const entity_manager = ecs.EntityManager.init(allocator);
         const initial_camera_position = Position{ .x = 0, .y = 0 };
+        const camera_component = camera.Camera.init(initial_camera_position.toRaylib());
 
         var game = Game{
             .entity_manager = entity_manager,
             .chunks = std.AutoHashMap(ecs.ChunkCoord, ecs.Chunk).init(allocator),
             .chunk_size = chunk_size,
             .allocator = allocator,
-            .camera_component = camera.Camera.init(initial_camera_position.toRaylib()),
             .camera_entity = Entity{ .id = 0 },
+            .camera_component = camera_component,
         };
 
         // Create default camera
