@@ -1,8 +1,8 @@
 const std = @import("std");
 const rl = @import("raylib");
-const ecs = @import("ecs.zig");
 const debugger = @import("debugger.zig");
 const camera = @import("camera.zig");
+const ecs = @import("ecs.zig");
 
 // Re-export core types for backwards compatibility
 pub const Entity = ecs.Entity;
@@ -10,76 +10,145 @@ pub const Position = ecs.Position;
 pub const Renderable = ecs.Renderable;
 pub const Camera = ecs.Camera;
 
-// Game functions
+// Game combines the chunked world and game functionalities
 pub const Game = struct {
-    chunked_world: ecs.ChunkedWorld,
-    camera_entity: ecs.Entity,
+    entity_manager: ecs.EntityManager,
+    chunks: std.AutoHashMap(ecs.ChunkCoord, ecs.Chunk),
+    chunk_size: i32,
+    allocator: std.mem.Allocator,
+    camera_entity: Entity,
     camera_component: Camera,
 
     pub fn init(allocator: std.mem.Allocator, chunk_size: i32) !Game {
-        const chunked_world = try ecs.ChunkedWorld.init(allocator, chunk_size);
-        const camera_entity = chunked_world.camera_entity;
-        const camera_component = chunked_world.getComponent(Camera, camera_entity) orelse return error.CameraNotFound;
+        const entity_manager = ecs.EntityManager.init(allocator);
 
-        return Game{
-            .chunked_world = chunked_world,
-            .camera_entity = camera_entity,
-            .camera_component = camera_component,
+        var game = Game{
+            .entity_manager = entity_manager,
+            .chunks = std.AutoHashMap(ecs.ChunkCoord, ecs.Chunk).init(allocator),
+            .chunk_size = chunk_size,
+            .allocator = allocator,
+            .camera_entity = Entity{ .id = 0 },
+            .camera_component = undefined,
         };
+
+        // Create default camera
+        try game.InitCamera();
+
+        return game;
     }
 
     pub fn deinit(self: *Game) void {
-        self.chunked_world.deinit();
+        self.entity_manager.deinit();
+
+        var iter = self.chunks.valueIterator();
+        while (iter.next()) |chunk| {
+            chunk.deinit();
+        }
+
+        self.chunks.deinit();
     }
 
-    pub fn createEntity(self: *Game, position: ecs.Position, renderable: ecs.Renderable) !ecs.Entity {
-        return try self.chunked_world.createEntity(position, renderable);
+    pub fn InitCamera(self: *Game) !void {
+        const position = Position{ .x = 0, .y = 0 };
+        self.camera_component = Camera{
+            .offset = rl.Vector2{ .x = 0, .y = 0 },
+            .target = position.toRaylib(),
+            .rotation = 0,
+            .zoom = 1.0,
+            .is_dragging = false,
+            .drag_start = rl.Vector2{ .x = 0, .y = 0 },
+        };
+        self.camera_entity = try self.createEntity(
+            position,
+            Renderable{
+                .color = rl.Color{ .r = 0, .g = 0, .b = 0, .a = 0 },
+                .width = 0,
+                .height = 0,
+                .shape = .Rectangle,
+            },
+        );
+    }
+
+    pub fn createEntity(self: *Game, position: Position, renderable: Renderable) !Entity {
+        const entity = try self.entity_manager.createEntity();
+
+        try self.entity_manager.upsertComponent(entity, position);
+        try self.entity_manager.upsertComponent(entity, renderable);
+
+        // Calculate chunk coordinates from position
+        const coord = ecs.ChunkCoord{
+            .x = @divFloor(@as(i32, @intFromFloat(position.x)), self.chunk_size),
+            .y = @divFloor(@as(i32, @intFromFloat(position.y)), self.chunk_size),
+        };
+
+        // Get or create the chunk
+        const result = try self.chunks.getOrPut(coord);
+        if (!result.found_existing) {
+            result.value_ptr.* = ecs.Chunk.init(self.allocator, coord);
+        }
+
+        // Add entity to chunk
+        try result.value_ptr.entities.append(entity);
+
+        return entity;
     }
 
     pub fn renderWorld(self: *Game) !void {
         camera.updateSystem(&self.camera_component);
         // Update the component in the world with our local copy
-        try self.chunked_world.setComponent(Camera, self.camera_entity, self.camera_component);
+        try self.entity_manager.upsertComponent(self.camera_entity, self.camera_component);
 
         // Begin 2D mode with camera
         rl.beginMode2D(self.camera_component.toRaylib());
         defer rl.endMode2D();
 
-        // Get visible chunks using the utility function
-        const visibility_result = try self.chunked_world.getVisibleChunks(
-            self.camera_entity,
-            rl.getScreenWidth(),
-            rl.getScreenHeight(),
-        );
-        defer visibility_result.visible_chunks.deinit();
+        // Get visible chunks
+        var visible_chunks = std.ArrayList(ecs.ChunkCoord).init(self.allocator);
+        defer visible_chunks.deinit();
+
+        // Get screen bounds in world coordinates
+        const bounds = camera.getScreenBoundsWorld(self.camera_component, rl.getScreenWidth(), rl.getScreenHeight());
+
+        // Calculate chunk grid boundaries
+        const start_chunk_x = @divFloor(@as(i32, @intFromFloat(bounds.top_left.x)), self.chunk_size);
+        const end_chunk_x = @divFloor(@as(i32, @intFromFloat(bounds.bottom_right.x)), self.chunk_size) + 1;
+        const start_chunk_y = @divFloor(@as(i32, @intFromFloat(bounds.top_left.y)), self.chunk_size);
+        const end_chunk_y = @divFloor(@as(i32, @intFromFloat(bounds.bottom_right.y)), self.chunk_size) + 1;
+
+        // Collect all chunks in the visible area
+        var y = start_chunk_y;
+        while (y <= end_chunk_y) : (y += 1) {
+            var x = start_chunk_x;
+            while (x <= end_chunk_x) : (x += 1) {
+                const coord = ecs.ChunkCoord{ .x = x, .y = y };
+                try visible_chunks.append(coord);
+            }
+        }
 
         // Render grid
-        debugger.renderChunkGrid(visibility_result.top_left, visibility_result.bottom_right, self.chunked_world.chunk_size);
+        debugger.renderChunkGrid(bounds.top_left, bounds.bottom_right, self.chunk_size);
 
         // Iterate only over visible chunks
-        for (visibility_result.visible_chunks.items) |coord| {
-            if (self.chunked_world.chunks.get(coord)) |chunk| {
-                renderEntities(self.chunked_world, chunk);
+        for (visible_chunks.items) |coord| {
+            if (self.chunks.get(coord)) |chunk| {
+                // Render entities in this chunk
+                for (chunk.iterEntities()) |entity| {
+                    const position = self.entity_manager.getComponent(Position, entity) orelse continue;
+                    const renderable = self.entity_manager.getComponent(Renderable, entity) orelse continue;
+
+                    switch (renderable.shape) {
+                        .Rectangle => {
+                            rl.drawRectangle(@intFromFloat(position.x), @intFromFloat(position.y), @intFromFloat(renderable.width), @intFromFloat(renderable.height), renderable.color);
+                        },
+                        .Circle => {
+                            rl.drawCircle(@intFromFloat(position.x), @intFromFloat(position.y), renderable.width / 2, renderable.color);
+                        },
+                        .Texture => {
+                            // Texture rendering would go here if implemented
+                        },
+                    }
+                }
             }
         }
     }
 };
-
-fn renderEntities(world: ecs.ChunkedWorld, chunk: ecs.Chunk) void {
-    for (chunk.iterEntities()) |entity| {
-        const position = world.entity_manager.getComponent(ecs.Position, entity) orelse continue;
-        const renderable = world.entity_manager.getComponent(ecs.Renderable, entity) orelse continue;
-
-        switch (renderable.shape) {
-            .Rectangle => {
-                rl.drawRectangle(@intFromFloat(position.x), @intFromFloat(position.y), @intFromFloat(renderable.width), @intFromFloat(renderable.height), renderable.color);
-            },
-            .Circle => {
-                rl.drawCircle(@intFromFloat(position.x), @intFromFloat(position.y), renderable.width / 2, renderable.color);
-            },
-            .Texture => {
-                // Texture rendering would go here if implemented
-            },
-        }
-    }
-}
