@@ -91,18 +91,21 @@ pub const Game = struct {
         rl.beginMode2D(self.camera_component.toRaylib());
         defer rl.endMode2D();
 
-        // Get visible chunks
-        var visible_chunks = std.ArrayList(ecs.ChunkCoord).init(self.allocator);
-        defer visible_chunks.deinit();
-
         // Get screen bounds in world coordinates
         const bounds = camera.getScreenBoundsWorld(self.camera_component, rl.getScreenWidth(), rl.getScreenHeight());
+
+        // Render grid
+        debugger.renderChunkGrid(bounds.top_left, bounds.bottom_right, self.chunk_size);
 
         // Calculate chunk grid boundaries
         const start_chunk_x = @divFloor(@as(i32, @intFromFloat(bounds.top_left.x)), self.chunk_size);
         const end_chunk_x = @divFloor(@as(i32, @intFromFloat(bounds.bottom_right.x)), self.chunk_size) + 1;
         const start_chunk_y = @divFloor(@as(i32, @intFromFloat(bounds.top_left.y)), self.chunk_size);
         const end_chunk_y = @divFloor(@as(i32, @intFromFloat(bounds.bottom_right.y)), self.chunk_size) + 1;
+
+        // Get visible chunks
+        var visible_chunks = std.ArrayList(ecs.ChunkCoord).init(self.allocator);
+        defer visible_chunks.deinit();
 
         // Collect all chunks in the visible area
         var y = start_chunk_y;
@@ -113,9 +116,6 @@ pub const Game = struct {
                 try visible_chunks.append(coord);
             }
         }
-
-        // Render grid
-        debugger.renderChunkGrid(bounds.top_left, bounds.bottom_right, self.chunk_size);
 
         // Iterate only over visible chunks
         for (visible_chunks.items) |coord| {
