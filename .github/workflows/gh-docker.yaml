@@ -5,7 +5,8 @@ on:
 
 jobs:
   build-and-push:
-    runs-on: ubuntu-24.04-arm
+    # runs-on: ubuntu-24.04-arm
+    runs-on: gha-runner-yagp
     permissions:
       contents: read
       packages: write
